@@ -1,4 +1,4 @@
-Code	Name	Surname	Boy / Girl
+Code	Name	Surname	Gender
 001	Amukelani	Nuwabela	Girl
 002	Aviwe	Dlamini	Boy
 003	Bokang	Tatiso	Girl
@@ -55,5 +55,6 @@ Code	Name	Surname	Boy / Girl
 0054	Thabiso	Monaheng	Boy
 0055	Tshephang	Mokumo	Boy
 0056	Tshepo	Mofokeng	Boy
+
 
 
