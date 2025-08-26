@@ -76,7 +76,6 @@ def load_students():
         rename_map["ID"] = "Code"
     df = df.rename(columns=rename_map)
 
-    # If file has no Code column, create an empty one (still works, but scanning needs Code)
     if "Code" not in df.columns:
         df["Code"] = ""
 
@@ -88,7 +87,6 @@ def load_books():
     df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
 
-    # Normalize headers & fields
     if "Status" not in df.columns:
         df["Status"] = "Available"
     for c in df.columns:
@@ -169,4 +167,366 @@ def main():
             student_names = (students["Name"].str.strip() + " " + students["Surname"].str.strip()).dropna().tolist()
         else:
             student_names = []
-        selected_student_
+        selected_student = st.selectbox("👩‍🎓 Scan or Type Student Name", sorted(student_names), placeholder="Scan or type student name...")
+
+        # Books
+        if include_borrowed:
+            book_candidates = books["Book Title"].dropna().str.strip()
+        else:
+            book_candidates = books.loc[books["Status"] == "Available", "Book Title"].dropna().str.strip()
+        selected_book = st.selectbox("📚 Scan or Type Book Title", sorted(book_candidates.unique().tolist()), placeholder="Scan or type book title...")
+
+        days = st.slider("Borrow Days", 1, 30, 14)
+        allow_override = st.checkbox("Allow borrow even if this book is marked Borrowed (back capture)")
+
+        if st.button("✅ Confirm Borrow"):
+            if selected_student and selected_book:
+                # Check status
+                if not books.empty and "Status" in books.columns:
+                    current_status_series = books.loc[books["Book Title"] == selected_book, "Status"]
+                    current_status = current_status_series.iloc[0] if len(current_status_series) else "Available"
+                else:
+                    current_status = "Available"
+
+                if current_status == "Borrowed" and not allow_override:
+                    st.error("This book is marked as Borrowed. Tick the override checkbox to capture anyway.")
+                else:
+                    now = datetime.now()
+                    due = now + timedelta(days=days)
+                    book_id = ""
+                    if "Book ID" in books.columns:
+                        sel = books.loc[books["Book Title"] == selected_book, "Book ID"]
+                        if len(sel):
+                            book_id = sel.iloc[0]
+
+                    new_row = {
+                        "Student": selected_student,
+                        "Book Title": selected_book,
+                        "Book ID": book_id,
+                        "Date Borrowed": now.strftime("%Y-%m-%d %H:%M:%S"),
+                        "Due Date": due.strftime("%Y-%m-%d %H:%M:%S"),
+                        "Returned": "No"
+                    }
+                    logs = df_append(logs, new_row)
+                    save_logs(logs)
+
+                    # Mark as borrowed in catalog
+                    if "Status" in books.columns:
+                        books.loc[books["Book Title"] == selected_book, "Status"] = "Borrowed"
+                        save_books(books)
+
+                    st.success(f"{selected_book} borrowed by {selected_student}. Due on {due.date()}")
+
+    # ---------------------- Return ----------------------
+    with tabs[1]:
+        st.subheader("Return a Book")
+        if logs.empty or "Returned" not in logs.columns:
+            st.info("No books currently borrowed.")
+        else:
+            open_logs = logs[logs["Returned"].str.lower() == "no"].copy()
+            if open_logs.empty:
+                st.info("No books currently borrowed.")
+            else:
+                open_logs["Label"] = open_logs["Student"] + " - " + open_logs["Book Title"]
+                selected_return = st.selectbox("Choose to Return", open_logs["Label"])
+                if st.button("📦 Mark as Returned"):
+                    row = open_logs[open_logs["Label"] == selected_return].iloc[0]
+                    idx = logs[
+                        (logs["Student"] == row["Student"]) &
+                        (logs["Book Title"] == row["Book Title"]) &
+                        (logs["Date Borrowed"] == row["Date Borrowed"])
+                    ].index
+                    if len(idx):
+                        logs.loc[idx, "Returned"] = "Yes"
+                        save_logs(logs)
+                        if "Status" in books.columns:
+                            books.loc[books["Book Title"] == row["Book Title"], "Status"] = "Available"
+                            save_books(books)
+                        st.success(f"{row['Book Title']} returned by {row['Student']}")
+                    else:
+                        st.error("Could not find the matching borrow record.")
+
+    # ---------------------- Add ----------------------
+    with tabs[2]:
+        st.subheader("➕ Add Student or Book")
+        opt = st.radio("Add:", ["Student", "Book"], horizontal=True)
+
+        if opt == "Student":
+            code = st.text_input("Student Code (e.g., 001)")
+            name = st.text_input("First Name")
+            surname = st.text_input("Surname")
+            gender = st.selectbox("Gender", ["Boy", "Girl"])
+            if st.button("Add Student"):
+                students = df_append(students, {
+                    "Code": (code or "").strip(),
+                    "Name": (name or "").strip(),
+                    "Surname": (surname or "").strip(),
+                    "Gender": gender
+                })
+                save_students(students)
+                st.success("Student added.")
+        else:
+            title = st.text_input("Book Title")
+            author = st.text_input("Author")
+            book_id = st.text_input("Book ID")
+            if st.button("Add Book"):
+                if not title.strip():
+                    st.error("Please enter a Book Title.")
+                else:
+                    books = df_append(books, {
+                        "Book ID": (book_id or "").strip(),
+                        "Book Title": title.strip(),
+                        "Author": (author or "").strip(),
+                        "Status": "Available"
+                    })
+                    save_books(books)
+                    st.success("Book added.")
+
+    # ---------------------- Delete ----------------------
+    with tabs[3]:
+        st.subheader("🗑️ Delete Student or Book")
+        opt = st.radio("Delete:", ["Student", "Book"], horizontal=True)
+
+        if opt == "Student":
+            if {"Name","Surname"}.issubset(students.columns):
+                student_list = sorted((students["Name"] + " " + students["Surname"]).str.strip().tolist())
+            else:
+                student_list = []
+            to_delete = st.selectbox("Select student to delete", student_list)
+            if st.button("Delete Student"):
+                if to_delete:
+                    name_part, surname_part = to_delete.rsplit(" ", 1)
+                    mask = (students["Name"] == name_part) & (students["Surname"] == surname_part)
+                    students = students[~mask]
+                    save_students(students)
+                    st.success("Student deleted.")
+        else:
+            titles = sorted(books.get("Book Title", pd.Series(dtype=str)).str.strip().replace("", pd.NA).dropna().unique().tolist())
+            to_delete = st.selectbox("Select book to delete", titles)
+            if st.button("Delete Book"):
+                books = books[books["Book Title"] != to_delete]
+                save_books(books)
+                st.success("Book deleted.")
+
+    # ---------------------- Logs (View + Add/Back-Capture + Edit/Delete) ----------------------
+    with tabs[4]:
+        st.subheader("📜 Borrow Log")
+
+        # Always reload latest when changing logs
+        logs = load_logs()
+        books = load_books()
+        students = load_students()
+
+        # ---------- VIEW ----------
+        logs_display = logs.copy()
+        if logs_display.empty:
+            st.info("No logs yet.")
+        else:
+            now = datetime.now()
+            logs_display["Due Date"] = pd.to_datetime(logs_display["Due Date"], errors='coerce')
+            logs_display["Returned"] = logs_display["Returned"].fillna("No")
+            logs_display["Days Overdue"] = logs_display.apply(
+                lambda row: (now - row["Due Date"]).days
+                if str(row["Returned"]).lower() == "no" and pd.notna(row["Due Date"]) and row["Due Date"] < now
+                else 0,
+                axis=1
+            )
+
+            def highlight_overdue(row):
+                if str(row.get("Returned","no")).lower() == "no" and pd.notna(row.get("Due Date")) and row["Due Date"] < now:
+                    return ['background-color: #ffdddd'] * len(row)
+                return [''] * len(row)
+
+            st.dataframe(logs_display.style.apply(highlight_overdue, axis=1), use_container_width=True)
+            st.download_button("Download CSV", logs_display.to_csv(index=False), file_name="Borrow_log.csv", mime="text/csv")
+
+        st.markdown("---")
+
+        # Small helper to build a timestamp from date+time inputs
+        def _ts(d, t):
+            return datetime.combine(d, t).strftime("%Y-%m-%d %H:%M:%S")
+
+        # ---------- ADD / BACK-CAPTURE ----------
+        with st.expander("➕ Add / Back-capture a Borrow"):
+            # Student select
+            student_names2 = []
+            if {"Name", "Surname"}.issubset(students.columns):
+                student_names2 = sorted((students["Name"].str.strip() + " " + students["Surname"].str.strip()).tolist())
+            sel_student = st.selectbox("👩‍🎓 Student", student_names2, key="add_student")
+
+            # Book select (allow any title)
+            book_titles2 = sorted(books.get("Book Title", pd.Series(dtype=str)).str.strip().replace("", pd.NA).dropna().unique().tolist())
+            sel_book = st.selectbox("📚 Book Title", book_titles2, key="add_book")
+
+            # Custom dates
+            col_a, col_b = st.columns(2)
+            d_borrow = col_a.date_input("Date Borrowed", value=datetime.now().date(), key="add_d_borrow")
+            t_borrow = col_b.time_input("Time Borrowed", value=datetime.now().time().replace(second=0, microsecond=0), key="add_t_borrow")
+
+            col_c, col_d = st.columns(2)
+            d_due = col_c.date_input("Due Date", value=(datetime.now() + timedelta(days=14)).date(), key="add_d_due")
+            t_due = col_d.time_input("Due Time", value=datetime.now().time().replace(second=0, microsecond=0), key="add_t_due")
+
+            returned_now = st.checkbox("Mark as returned already?", value=False, key="add_returned")
+
+            if st.button("💾 Save Borrow (back-capture)"):
+                if not sel_student or not sel_book:
+                    st.error("Please choose both a student and a book.")
+                else:
+                    # Pull Book ID if present
+                    book_id = ""
+                    if "Book ID" in books.columns:
+                        sel = books.loc[books["Book Title"] == sel_book, "Book ID"]
+                        if len(sel): book_id = sel.iloc[0]
+
+                    new_row = {
+                        "Student": sel_student,
+                        "Book Title": sel_book,
+                        "Book ID": book_id,
+                        "Date Borrowed": _ts(d_borrow, t_borrow),
+                        "Due Date": _ts(d_due, t_due),
+                        "Returned": "Yes" if returned_now else "No",
+                    }
+                    logs2 = pd.concat([logs, pd.DataFrame([new_row])], ignore_index=True)
+                    save_logs(logs2)
+
+                    # Update catalog status only if not returned
+                    if not returned_now and "Status" in books.columns:
+                        books.loc[books["Book Title"] == sel_book, "Status"] = "Borrowed"
+                        save_books(books)
+
+                    st.success("Back-captured borrow saved.")
+                    st.rerun()
+
+        # ---------- EDIT EXISTING ----------
+        with st.expander("✏️ Edit an Existing Log"):
+            if logs.empty:
+                st.info("Nothing to edit yet.")
+            else:
+                # unique label per row for selection
+                logs_sel = logs.copy()
+                label = logs_sel["Student"] + " | " + logs_sel["Book Title"] + " | " + logs_sel["Date Borrowed"]
+                sel_label = st.selectbox("Choose a log entry", label.tolist(), key="edit_pick")
+
+                row = logs_sel[label == sel_label].iloc[0]
+
+                # Editable fields
+                st.write("**Edit fields:**")
+                e_student = st.text_input("Student", value=row["Student"], key="edit_student")
+                e_book    = st.text_input("Book Title", value=row["Book Title"], key="edit_book")
+
+                # Borrowed / Due datetime pickers
+                try:
+                    rb = pd.to_datetime(row["Date Borrowed"])
+                except:
+                    rb = datetime.now()
+                try:
+                    rd = pd.to_datetime(row["Due Date"])
+                except:
+                    rd = datetime.now() + timedelta(days=14)
+
+                col1, col2 = st.columns(2)
+                e_db = col1.date_input("Date Borrowed", value=rb.date(), key="edit_db")
+                e_tb = col2.time_input("Time Borrowed", value=rb.time().replace(microsecond=0), key="edit_tb")
+
+                col3, col4 = st.columns(2)
+                e_dd = col3.date_input("Due Date", value=rd.date(), key="edit_dd")
+                e_td = col4.time_input("Due Time", value=rd.time().replace(microsecond=0), key="edit_td")
+
+                e_returned = st.selectbox("Returned", ["No", "Yes"], index=0 if str(row["Returned"]).lower()=="no" else 1, key="edit_ret")
+
+                colA, colB = st.columns(2)
+                if colA.button("💾 Save Changes"):
+                    idx = logs_sel[label == sel_label].index[0]
+                    logs.loc[idx, "Student"]       = e_student.strip()
+                    logs.loc[idx, "Book Title"]    = e_book.strip()
+                    if "Book ID" in logs.columns:
+                        old_id = logs.loc[idx, "Book ID"]
+                        if old_id == "" and "Book ID" in books.columns:
+                            match = books.loc[books["Book Title"] == e_book, "Book ID"]
+                            logs.loc[idx, "Book ID"] = match.iloc[0] if len(match) else ""
+                    logs.loc[idx, "Date Borrowed"] = _ts(e_db, e_tb)
+                    logs.loc[idx, "Due Date"]      = _ts(e_dd, e_td)
+                    logs.loc[idx, "Returned"]      = e_returned
+
+                    save_logs(logs)
+
+                    # Reflect catalog status based on 'Returned'
+                    if "Status" in books.columns:
+                        books.loc[books["Book Title"] == e_book, "Status"] = "Available" if e_returned=="Yes" else "Borrowed"
+                        save_books(books)
+
+                    st.success("Log updated.")
+                    st.rerun()
+
+                if colB.button("🗑️ Delete This Log"):
+                    idx = logs_sel[label == sel_label].index[0]
+                    title = logs.loc[idx, "Book Title"]
+                    logs = logs.drop(index=idx).reset_index(drop=True)
+                    save_logs(logs)
+
+                    # If deleting an open borrow, mark the book available
+                    if "Status" in books.columns:
+                        books.loc[books["Book Title"] == title, "Status"] = "Available"
+                        save_books(books)
+
+                    st.warning("Log deleted.")
+                    st.rerun()
+
+    # ---------------------- Analytics ----------------------
+    with tabs[5]:
+        st.subheader("📈 Library Analytics Dashboard")
+        if logs.empty:
+            st.info("No data available yet to display analytics.")
+        else:
+            # Top 5 Most Borrowed Books
+            if "Book Title" in logs.columns:
+                top_books = logs["Book Title"].value_counts().nlargest(5).reset_index()
+                top_books.columns = ["Book Title", "Borrow Count"]
+                st.plotly_chart(px.bar(top_books, x="Book Title", y="Borrow Count", title="📚 Top 5 Most Borrowed Books"))
+
+            # Active vs Inactive Students
+            active_students = logs["Student"].value_counts() if "Student" in logs.columns else pd.Series(dtype=int)
+            active_count = active_students[active_students > 0].count()
+            inactive_count = max(0, len(students) - active_count)
+            pie_df = pd.DataFrame({"Status": ["Active", "Inactive"], "Count": [active_count, inactive_count]})
+            st.plotly_chart(px.pie(pie_df, values="Count", names="Status", title="👩‍🎓 Active vs Inactive Students"))
+
+            # Overdue Books
+            today = datetime.now()
+            logs_od = logs.copy()
+            if "Due Date" in logs_od.columns:
+                logs_od["Due Date"] = pd.to_datetime(logs_od["Due Date"], errors="coerce")
+            if "Returned" in logs_od.columns:
+                overdue = logs_od[(logs_od["Returned"].str.lower() == "no") & (logs_od["Due Date"] < today)]
+                if not overdue.empty:
+                    overdue = overdue.copy()
+                    overdue["Days Overdue"] = (today - overdue["Due Date"]).dt.days
+                    st.warning(f"⏰ {len(overdue)} books overdue!")
+                    st.dataframe(overdue[["Student", "Book Title", "Due Date", "Days Overdue"]])
+                else:
+                    st.success("✅ No overdue books!")
+
+            # Borrowing Trends
+            logs_trend = logs.copy()
+            if "Date Borrowed" in logs_trend.columns:
+                logs_trend["Date Borrowed"] = pd.to_datetime(logs_trend["Date Borrowed"], errors="coerce")
+                trend = logs_trend.dropna(subset=["Date Borrowed"]).groupby(
+                    logs_trend["Date Borrowed"].dt.to_period("M")
+                ).size().reset_index(name="Borrows")
+                trend["Month"] = trend["Date Borrowed"].astype(str)
+                st.plotly_chart(px.line(trend, x="Month", y="Borrows", title="📈 Borrowing Trends Over Time"))
+
+# ------------------------------------------------------
+# Run App
+# ------------------------------------------------------
+if __name__ == "__main__":
+    if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+        login_form()
+    else:
+        st.sidebar.success(f"🔓 Logged in as: {st.session_state['username']}")
+        if st.sidebar.button("🚪 Logout"):
+            st.session_state.clear()
+            st.rerun()
+        else:
+            main()
