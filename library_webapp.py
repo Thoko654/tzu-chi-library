@@ -458,13 +458,12 @@ def main():
                 e_student = st.text_input("Student", value=row["Student"], key="edit_student")
                 e_book    = st.text_input("Book Title", value=row["Book Title"], key="edit_book")
 
-                try:
-                    rb = pd.to_datetime(row["Date Borrowed"])
-                except:
+                # SAFE parsing: coerce to datetime, fallback if NaT
+                rb = pd.to_datetime(row.get("Date Borrowed", ""), errors="coerce")
+                if pd.isna(rb):
                     rb = datetime.now()
-                try:
-                    rd = pd.to_datetime(row["Due Date"])
-                except:
+                rd = pd.to_datetime(row.get("Due Date", ""), errors="coerce")
+                if pd.isna(rd):
                     rd = datetime.now() + timedelta(days=14)
 
                 col1, col2 = st.columns(2)
