@@ -295,7 +295,7 @@ def main():
     c3.metric("Available", int(available_count))
     c4.metric("Borrowed (open)", int(open_borrows))
 
-    tabs = st.tabs(["📖 Borrow", "📦 Return", "➕ Add", "🗑️ Delete", "📜 Logs", "📈 Analytics"])
+    tabs = st.tabs(["📖 Borrow", "📦 Return", "➕ Add", "🗑️ Delete", "📘 Catalog", "📜 Logs", "📈 Analytics"])
 
     # ---------------------- Borrow ----------------------
     with tabs[0]:
@@ -448,6 +448,114 @@ def main():
                 books = books[books["Book Title"] != to_delete]
                 save_books(books)
                 st.success("Book deleted.")
+        # ---------------------- Catalog (View / Edit Books) ----------------------
+with tabs[4]:
+    st.subheader("📘 Catalog — View & Edit Books")
+
+    # Always reload books to show latest
+    books = load_books().copy()
+
+    if books.empty or "Book Title" not in books.columns:
+        st.info("No books yet. Use the ➕ Add tab to add some.")
+    else:
+        # Filters
+        col_f1, col_f2 = st.columns([2, 1])
+        search = col_f1.text_input("🔍 Search by title/author/ID", "")
+        only_available = col_f2.checkbox("Show only Available", value=False)
+
+        df = books.copy()
+
+        # apply filters
+        if search.strip():
+            q = search.strip().lower()
+            df = df[
+                df.get("Book Title", "").str.lower().str.contains(q, na=False)
+                | df.get("Author", "").str.lower().str.contains(q, na=False)
+                | df.get("Book ID", "").str.lower().str.contains(q, na=False)
+            ].copy()
+
+        if only_available and "Status" in df.columns:
+            df = df[df["Status"].str.lower().eq("available")].copy()
+
+        # ensure required columns exist
+        for c in ["Book ID", "Book Title", "Author", "Status"]:
+            if c not in df.columns:
+                df[c] = ""
+
+        # Keep track of original row indices so we can write changes back
+        df["_row_id"] = df.index
+
+        st.caption("Tip: edit cells directly; add/remove rows with the table toolbar. Click **Save changes** below to persist.")
+        edited = st.data_editor(
+            df[["Book ID", "Book Title", "Author", "Status", "_row_id"]],
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config={
+                "Book ID": {"help": "Optional unique ID/barcode"},
+                "Book Title": {"help": "Required"},
+                "Author": {"help": "Optional"},
+                "Status": {
+                    "help": "Available or Borrowed",
+                    "required": False,
+                    "editable": True,
+                },
+                "_row_id": {"hidden": True},
+            },
+            key="catalog_editor",
+        )
+
+        # Validate and save
+        save_col1, save_col2 = st.columns([1, 5])
+        if save_col1.button("💾 Save changes"):
+            # Start from original books and update rows present in 'edited'
+            updated = books.copy()
+
+            # Rows to update (those with _row_id that still map to original rows)
+            to_update = edited.dropna(subset=["_row_id"]).copy()
+            to_update["_row_id"] = to_update["_row_id"].astype(int)
+
+            # 1) Update existing rows
+            for _, r in to_update.iterrows():
+                ridx = r["_row_id"]
+                if ridx in updated.index:
+                    updated.loc[ridx, "Book ID"] = str(r.get("Book ID", "")).strip()
+                    updated.loc[ridx, "Book Title"] = str(r.get("Book Title", "")).strip()
+                    updated.loc[ridx, "Author"] = str(r.get("Author", "")).strip()
+                    # Normalize Status
+                    status = str(r.get("Status", "")).strip().lower()
+                    updated.loc[ridx, "Status"] = "Borrowed" if status in {"borrowed", "out", "issued"} else "Available"
+
+            # 2) New rows (those with NaN _row_id or _row_id not in original index)
+            new_rows = edited[edited["_row_id"].isna() | ~edited["_row_id"].astype("Int64").isin(updated.index)]
+            for _, r in new_rows.iterrows():
+                new_rec = {
+                    "Book ID": str(r.get("Book ID", "")).strip(),
+                    "Book Title": str(r.get("Book Title", "")).strip(),
+                    "Author": str(r.get("Author", "")).strip(),
+                    "Status": "Borrowed" if str(r.get("Status", "")).strip().lower() in {"borrowed","out","issued"} else "Available",
+                }
+                # Skip blank book title rows
+                if new_rec["Book Title"]:
+                    updated = pd.concat([updated, pd.DataFrame([new_rec])], ignore_index=True)
+
+            # 3) Optionally, remove rows that were filtered out in the editor
+            # We’ll infer deletions by titles that existed before & are missing now AND were visible in the editor scope.
+            # Safer approach: show a dedicated delete in the Delete tab. We’ll skip auto-deletes here.
+
+            # Final tidy: make sure required cols exist and are strings
+            for c in ["Book ID", "Book Title", "Author", "Status"]:
+                if c not in updated.columns:
+                    updated[c] = ""
+                updated[c] = updated[c].astype(str).str.strip()
+
+            # Normalize status
+            updated["Status"] = updated["Status"].str.lower().map(
+                {"available": "Available", "borrowed": "Borrowed", "out": "Borrowed", "issued": "Borrowed"}
+            ).fillna("Available")
+
+            save_books(updated)
+            st.success("Catalog saved.")
+            st.rerun()
 
     # ---------------------- Logs (view/add/edit/delete) ----------------------
     with tabs[4]:
@@ -636,3 +744,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
