@@ -11,8 +11,9 @@ import plotly.express as px
 # ======================================================
 st.set_page_config(page_title="Tzu Chi Library", layout="wide")
 
-# Use a stable data folder to avoid path issues
-DATA_DIR = os.path.join(os.getcwd(), "data")
+# Stable data folder for local fallback
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 STUDENT_CSV = os.path.join(DATA_DIR, "Student_records.csv")
@@ -20,7 +21,7 @@ BOOKS_CSV   = os.path.join(DATA_DIR, "Library_books.csv")
 LOG_CSV     = os.path.join(DATA_DIR, "Borrow_log.csv")
 
 # ======================================================
-# Simple Credential Store
+# Login (simple)
 # ======================================================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -47,98 +48,102 @@ def login_form():
             st.error("❌ Invalid credentials")
 
 # ======================================================
-# CSV Utilities (no caching → always read latest)
-# + One-time migration from legacy files in repo root
+# Storage layer: Google Sheets (preferred) or CSV fallback
 # ======================================================
-def _file_rowcount(path: str) -> int:
-    if not os.path.exists(path):
-        return 0
+USE_GSHEETS = "gsheets" in st.secrets and "service_account" in st.secrets["gsheets"]
+
+if USE_GSHEETS:
+    import gspread
+    from gspread_dataframe import set_with_dataframe, get_as_dataframe
+
+def df_append(df, row_dict):
+    return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
+
+# ---------- Google Sheets helpers ----------
+def _gs_client():
+    sa_info = dict(st.secrets["gsheets"]["service_account"])
+    return gspread.service_account_from_dict(sa_info)
+
+def _gs_open():
+    client = _gs_client()
+    return client.open_by_key(st.secrets["gsheets"]["sheet_id"])
+
+def _gs_fetch(ws_name, empty_df_cols=None):
+    sh = _gs_open()
     try:
-        return len(pd.read_csv(path, dtype=str))
+        ws = sh.worksheet(ws_name)
     except Exception:
-        return 0
-
-def ensure_files():
-    """Create data files if missing. If the new data file is empty but a legacy
-    file exists in the repo root, migrate it into data/ (one-time)."""
-    # Create empty, modern-scheme files if missing
-    if not os.path.exists(STUDENT_CSV):
-        pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
-    if not os.path.exists(BOOKS_CSV):
-        pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
-    if not os.path.exists(LOG_CSV):
-        pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
-
-    # Legacy locations (repo root)
-    legacy_students = "Student_records.csv"
-    legacy_books    = "Library_books.csv"
-    legacy_logs     = "Borrow_log.csv"
-
-    # Students migration
-    if _file_rowcount(STUDENT_CSV) == 0 and os.path.exists(legacy_students):
-        try:
-            df = pd.read_csv(legacy_students, dtype=str).fillna("")
-            # normalize headers
-            rename_map = {"Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname", "Student Code":"Code", "ID":"Code"}
-            df = df.rename(columns={k:v for k,v in rename_map.items() if k in df.columns})
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Code" not in df.columns: df["Code"] = ""
-            if "Gender" not in df.columns: df["Gender"] = ""
-            df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
-        except Exception as e:
-            st.warning(f"Could not migrate legacy students file: {e}")
-
-    # Books migration
-    if _file_rowcount(BOOKS_CSV) == 0 and os.path.exists(legacy_books):
-        try:
-            df = pd.read_csv(legacy_books, dtype=str).fillna("")
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Status" not in df.columns: df["Status"] = "Available"
-            df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
-        except Exception as e:
-            st.warning(f"Could not migrate legacy books file: {e}")
-
-    # Logs migration
-    if _file_rowcount(LOG_CSV) == 0 and os.path.exists(legacy_logs):
-        try:
-            df = pd.read_csv(legacy_logs, dtype=str).fillna("")
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Book ID" not in df.columns: df["Book ID"] = ""
-            if "Returned" not in df.columns: df["Returned"] = "No"
-            df.to_csv(LOG_CSV, index=False, encoding="utf-8")
-        except Exception as e:
-            st.warning(f"Could not migrate legacy logs file: {e}")
-
-def load_students():
-    df = pd.read_csv(STUDENT_CSV, dtype=str).fillna("")
-    df.columns = df.columns.str.strip()
-    # Backward compatibility
-    rename_map = {}
-    if "Boy / Girl" in df.columns and "Gender" not in df.columns:
-        rename_map["Boy / Girl"] = "Gender"
-    if "First Name" in df.columns and "Name" not in df.columns:
-        rename_map["First Name"] = "Name"
-    if "Last Name" in df.columns and "Surname" not in df.columns:
-        rename_map["Last Name"] = "Surname"
-    if "Student Code" in df.columns and "Code" not in df.columns:
-        rename_map["Student Code"] = "Code"
-    if "ID" in df.columns and "Code" not in df.columns:
-        rename_map["ID"] = "Code"
-    df = df.rename(columns=rename_map)
-    if "Code" not in df.columns:
-        df["Code"] = ""
+        ws = sh.add_worksheet(title=ws_name, rows="1000", cols="20")
+        if empty_df_cols:
+            set_with_dataframe(ws, pd.DataFrame(columns=empty_df_cols))
+    df = get_as_dataframe(ws, evaluate_formulas=True, dtype=str, header=1)
+    if df is None:
+        df = pd.DataFrame(columns=empty_df_cols or [])
+    df = df.fillna("")
+    df.columns = [str(c).strip() for c in df.columns]
+    # remove empty rows
+    if len(df.columns):
+        df = df[~(df.apply(lambda r: "".join(r.astype(str)).strip(), axis=1) == "")]
     for c in df.columns:
         df[c] = df[c].astype(str).str.strip()
+    return df, ws
+
+def _gs_save(ws, df):
+    if df is None:
+        df = pd.DataFrame()
+    df = df.fillna("")
+    for c in df.columns:
+        df[c] = df[c].astype(str).str.strip()
+    ws.clear()
+    set_with_dataframe(ws, df)
+
+# ---------- Public API used by the app ----------
+def ensure_files():
+    if USE_GSHEETS:
+        # Create missing sheets with headers
+        sh = _gs_open()
+        want = {
+            "Students": ["Code", "Name", "Surname", "Gender"],
+            "Books":    ["Book ID", "Book Title", "Author", "Status"],
+            "Logs":     ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"],
+        }
+        for name, cols in want.items():
+            try:
+                sh.worksheet(name)
+            except Exception:
+                ws = sh.add_worksheet(title=name, rows="1000", cols="20")
+                set_with_dataframe(ws, pd.DataFrame(columns=cols))
+    else:
+        # Local CSV fallback
+        if not os.path.exists(STUDENT_CSV):
+            pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
+        if not os.path.exists(BOOKS_CSV):
+            pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
+        if not os.path.exists(LOG_CSV):
+            pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
+
+def load_students():
+    if USE_GSHEETS:
+        df, _ = _gs_fetch("Students", ["Code","Name","Surname","Gender"])
+    else:
+        df = pd.read_csv(STUDENT_CSV, dtype=str).fillna("")
+    df.columns = df.columns.str.strip()
+    # Back-compat names
+    rename_map = {"Boy / Girl":"Gender","First Name":"Name","Last Name":"Surname","Student Code":"Code","ID":"Code"}
+    df = df.rename(columns={k:v for k,v in rename_map.items() if k in df.columns})
+    if "Code" not in df.columns: df["Code"] = ""
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
     return df
 
 def load_books():
-    df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
+    if USE_GSHEETS:
+        df, _ = _gs_fetch("Books", ["Book ID","Book Title","Author","Status"])
+    else:
+        df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    if "Status" not in df.columns:
-        df["Status"] = "Available"
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
-    if "Book Title" in df.columns and "Book ID" in df.columns:
+    if "Status" not in df.columns: df["Status"] = "Available"
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
+    if {"Book Title","Book ID"}.issubset(df.columns):
         df = df[~((df["Book Title"] == "") & (df["Book ID"] == ""))].copy()
     df["Status"] = (
         df["Status"].str.lower()
@@ -148,21 +153,37 @@ def load_books():
     return df
 
 def load_logs():
-    df = pd.read_csv(LOG_CSV, dtype=str).fillna("")
+    if USE_GSHEETS:
+        df, _ = _gs_fetch("Logs", ["Student","Book Title","Book ID","Date Borrowed","Due Date","Returned"])
+    else:
+        df = pd.read_csv(LOG_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
     return df
 
-def save_students(df): df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
-def save_books(df):   df.to_csv(BOOKS_CSV,   index=False, encoding="utf-8")
-def save_logs(df):    df.to_csv(LOG_CSV,    index=False, encoding="utf-8")
+def save_students(df):
+    if USE_GSHEETS:
+        _, ws = _gs_fetch("Students", ["Code","Name","Surname","Gender"])
+        _gs_save(ws, df)
+    else:
+        df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
 
-def df_append(df, row_dict):
-    return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
+def save_books(df):
+    if USE_GSHEETS:
+        _, ws = _gs_fetch("Books", ["Book ID","Book Title","Author","Status"])
+        _gs_save(ws, df)
+    else:
+        df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
+
+def save_logs(df):
+    if USE_GSHEETS:
+        _, ws = _gs_fetch("Logs", ["Student","Book Title","Book ID","Date Borrowed","Due Date","Returned"])
+        _gs_save(ws, df)
+    else:
+        df.to_csv(LOG_CSV, index=False, encoding="utf-8")
 
 # ======================================================
-# Main Library System
+# Main App
 # ======================================================
 def main():
     ensure_files()
@@ -177,12 +198,14 @@ def main():
             st.session_state.clear()
             st.rerun()
         st.markdown("### 🧪 Data health")
-        st.caption(f"Students: `{STUDENT_CSV}` → **{len(students)}** rows")
-        st.caption(f"Books: `{BOOKS_CSV}` → **{len(books)}** rows")
-        st.caption(f"Logs: `{LOG_CSV}` → **{len(logs)}** rows")
+        store = "Google Sheets" if USE_GSHEETS else "Local CSV"
+        st.caption(f"Storage: **{store}**")
+        st.caption(f"Students rows: **{len(students)}**")
+        st.caption(f"Books rows: **{len(books)}**")
+        st.caption(f"Logs rows: **{len(logs)}**")
 
     # Optional logo
-    logo_path = os.path.join("assets", "chi-logo.png")
+    logo_path = os.path.join(BASE_DIR, "assets", "chi-logo.png")
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as image_file:
             encoded = base64.b64encode(image_file.read()).decode()
@@ -195,7 +218,7 @@ def main():
 
     st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Saturday Tutor Class Library System</h1>", unsafe_allow_html=True)
 
-    # Top metrics (only count books with a title)
+    # Headline metrics
     total_books = books["Book Title"].str.strip().ne("").sum() if "Book Title" in books.columns else 0
     available_count = (((books["Status"] == "Available") & books["Book Title"].str.strip().ne("")).sum()
                        if "Status" in books.columns and "Book Title" in books.columns else 0)
@@ -212,7 +235,6 @@ def main():
     # ---------------------- Borrow ----------------------
     with tabs[0]:
         st.subheader("Borrow a Book")
-
         include_borrowed = st.checkbox("Show borrowed books (for back capture / corrections)", value=False)
 
         # Students
@@ -383,12 +405,10 @@ def main():
                 else 0,
                 axis=1
             )
-
             def highlight_overdue(row):
                 if str(row.get("Returned","no")).lower() == "no" and pd.notna(row.get("Due Date")) and row["Due Date"] < now:
                     return ['background-color: #ffdddd'] * len(row)
                 return [''] * len(row)
-
             st.dataframe(logs_display.style.apply(highlight_overdue, axis=1), use_container_width=True)
             st.download_button("Download CSV", logs_display.to_csv(index=False), file_name="Borrow_log.csv", mime="text/csv")
 
@@ -425,7 +445,6 @@ def main():
                     if "Book ID" in books.columns:
                         sel = books.loc[books["Book Title"] == sel_book, "Book ID"]
                         if len(sel): book_id = sel.iloc[0]
-
                     new_row = {
                         "Student": sel_student,
                         "Book Title": sel_book,
@@ -436,11 +455,9 @@ def main():
                     }
                     logs2 = pd.concat([logs, pd.DataFrame([new_row])], ignore_index=True)
                     save_logs(logs2)
-
                     if not returned_now and "Status" in books.columns:
                         books.loc[books["Book Title"] == sel_book, "Status"] = "Borrowed"
                         save_books(books)
-
                     st.success("Back-captured borrow saved.")
                     st.rerun()
 
@@ -458,13 +475,10 @@ def main():
                 e_student = st.text_input("Student", value=row["Student"], key="edit_student")
                 e_book    = st.text_input("Book Title", value=row["Book Title"], key="edit_book")
 
-                # SAFE parsing: coerce to datetime, fallback if NaT
                 rb = pd.to_datetime(row.get("Date Borrowed", ""), errors="coerce")
-                if pd.isna(rb):
-                    rb = datetime.now()
+                if pd.isna(rb): rb = datetime.now()
                 rd = pd.to_datetime(row.get("Due Date", ""), errors="coerce")
-                if pd.isna(rd):
-                    rd = datetime.now() + timedelta(days=14)
+                if pd.isna(rd): rd = datetime.now() + timedelta(days=14)
 
                 col1, col2 = st.columns(2)
                 e_db = col1.date_input("Date Borrowed", value=rb.date(), key="edit_db")
@@ -489,13 +503,10 @@ def main():
                     logs.loc[idx, "Date Borrowed"] = _ts(e_db, e_tb)
                     logs.loc[idx, "Due Date"]      = _ts(e_dd, e_td)
                     logs.loc[idx, "Returned"]      = e_returned
-
                     save_logs(logs)
-
                     if "Status" in books.columns:
                         books.loc[books["Book Title"] == e_book, "Status"] = "Available" if e_returned=="Yes" else "Borrowed"
                         save_books(books)
-
                     st.success("Log updated.")
                     st.rerun()
 
