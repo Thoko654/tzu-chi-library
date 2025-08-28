@@ -1,3 +1,5 @@
+gspread
+gspread-dataframe
 plotly
 streamlit
 pandas
