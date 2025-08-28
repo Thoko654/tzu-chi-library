@@ -1,22 +1,18 @@
-# ======================================================
-# Tzu Chi Library – Streamlit app with GitHub persistence
-# ======================================================
-
 import os
 import base64
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-import requests  # <— for GitHub API calls
+import requests
 
 # ======================================================
 # Config
 # ======================================================
 st.set_page_config(page_title="Tzu Chi Library", layout="wide")
 
-# Stable data folder on the running machine (local fallback)
+# Stable data folder (local CSV fallback)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -26,30 +22,76 @@ BOOKS_CSV   = os.path.join(DATA_DIR, "Library_books.csv")
 LOG_CSV     = os.path.join(DATA_DIR, "Borrow_log.csv")
 
 # ======================================================
-# GitHub persistence helpers
-# (uses Streamlit Secrets -> [github_store] token/repo/branch/base_path)
+# Auth (simple)
+# ======================================================
+def hash_password(p): return hashlib.sha256(p.encode()).hexdigest()
+
+USERS = {
+    "admin":   hash_password("admin123"),
+    "teacher": hash_password("tzuchi2025"),
+}
+
+def verify_login(username, password):
+    return USERS.get(username) == hash_password(password)
+
+def login_form():
+    st.markdown("## 🔐 Login")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if verify_login(u, p):
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = u
+            st.success("✅ Login successful")
+            st.rerun()
+        else:
+            st.error("❌ Invalid credentials")
+
+# ======================================================
+# Helpers — safe ts, df append
+# ======================================================
+def _safe_to_datetime(s):
+    """Coerce various strings to datetime; return None if cannot parse."""
+    try:
+        dt = pd.to_datetime(s, errors="coerce")
+        if pd.isna(dt): return None
+        return dt.to_pydatetime()
+    except Exception:
+        return None
+
+def _ts(d: date, t: time):
+    return datetime.combine(d, t).strftime("%Y-%m-%d %H:%M:%S")
+
+def df_append(df, row_dict):
+    return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
+
+# ======================================================
+# GitHub Sync (optional)
 # ======================================================
 def _gh_enabled() -> bool:
     return "github_store" in st.secrets
 
+def _gh_conf():
+    s = st.secrets["github_store"]
+    return s.get("token", ""), s.get("repo", ""), s.get("branch", "main"), s.get("base_path", "data")
+
 def _gh_headers():
-    return {
-        "Authorization": f"token {st.secrets['github_store']['token']}",
-        "Accept": "application/vnd.github+json",
-    }
+    token, *_ = _gh_conf()
+    return {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
 
 def _gh_paths():
-    sec = st.secrets["github_store"]
-    return sec["repo"], sec.get("branch", "main"), sec.get("base_path", "data")
+    _, repo, branch, base_path = _gh_conf()
+    return repo, branch, base_path
 
 def _gh_get_sha(repo, branch, path):
     url = f"https://api.github.com/repos/{repo}/contents/{path}?ref={branch}"
     r = requests.get(url, headers=_gh_headers(), timeout=20)
     if r.status_code == 200:
         return r.json().get("sha")
-    return None  # file doesn’t exist yet
+    return None
 
 def _gh_put_file(repo, branch, path, content_bytes, message):
+    """Create/update a file in repo via Contents API. Raises with clear message on error."""
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
     sha = _gh_get_sha(repo, branch, path)
     payload = {
@@ -62,8 +104,6 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
         payload["sha"] = sha
 
     r = requests.put(url, headers=_gh_headers(), json=payload, timeout=30)
-
-    # If the branch is protected or we hit another policy, GitHub returns a clear message.
     if r.status_code not in (200, 201):
         try:
             body = r.json()
@@ -78,55 +118,44 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
         )
     return r.json()
 
+def _gh_self_test():
+    """Light diagnostic shown in sidebar."""
+    if not _gh_enabled():
+        return "GitHub OFF", "gray"
+    try:
+        token, repo, branch, base_path = _gh_conf()
+        if not token or not repo:
+            return "GitHub secrets incomplete", "red"
+        r = requests.get(f"https://api.github.com/repos/{repo}", headers=_gh_headers(), timeout=15)
+        if r.status_code != 200:
+            return f"GH {r.status_code}: cannot see '{repo}'", "red"
+        rb = requests.get(f"https://api.github.com/repos/{repo}/branches/{branch}", headers=_gh_headers(), timeout=15)
+        if rb.status_code != 200:
+            return f"GH {rb.status_code}: branch '{branch}' missing", "red"
+        return f"GitHub OK → {repo}@{branch}/{base_path}", "green"
+    except Exception as e:
+        return f"GH check failed: {e}", "red"
 
-# Pull latest CSVs from GitHub if they don’t exist locally (fresh boot)
-_gh_try_pull(STUDENT_CSV, "Student_records.csv")
-_gh_try_pull(BOOKS_CSV,   "Library_books.csv")
-_gh_try_pull(LOG_CSV,     "Borrow_log.csv")
-
-# ======================================================
-# Simple Credential Store
-# ======================================================
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-USERS = {
-    "admin":   hash_password("admin123"),
-    "teacher": hash_password("tzuchi2025"),
-}
-
-def verify_login(username, password):
-    return USERS.get(username) == hash_password(password)
-
-def login_form():
-    st.markdown("## 🔐 Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if verify_login(username, password):
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.success("✅ Login successful")
-            st.rerun()
-        else:
-            st.error("❌ Invalid credentials")
+def _gh_put_csv(local_path, repo_rel_path, message):
+    """Read local file and push to GitHub path."""
+    with open(local_path, "rb") as f:
+        csv_bytes = f.read()
+    repo, branch, base_path = _gh_paths()
+    path = f"{base_path}/{repo_rel_path}".lstrip("/")
+    return _gh_put_file(repo, branch, path, csv_bytes, message)
 
 # ======================================================
-# CSV Utilities (no cache -> always latest)
-# plus one-time migration from legacy root files
+# CSV Utilities (+ one-time migration)
 # ======================================================
 def _file_rowcount(path: str) -> int:
-    if not os.path.exists(path):
-        return 0
+    if not os.path.exists(path): return 0
     try:
         return len(pd.read_csv(path, dtype=str))
     except Exception:
         return 0
 
 def ensure_files():
-    """Create CSVs if missing. If empty but legacy files exist in repo root,
-    migrate them into data/."""
-    # Create empty modern files
+    # Create modern files if missing
     if not os.path.exists(STUDENT_CSV):
         pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if not os.path.exists(BOOKS_CSV):
@@ -134,30 +163,25 @@ def ensure_files():
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
 
-    # Legacy files in repo root (only migrate if new files are empty)
+    # Migrate from legacy root files if new file is empty
     legacy_students = os.path.join(BASE_DIR, "Student_records.csv")
     legacy_books    = os.path.join(BASE_DIR, "Library_books.csv")
     legacy_logs     = os.path.join(BASE_DIR, "Borrow_log.csv")
 
-    # Students
     if _file_rowcount(STUDENT_CSV) == 0 and os.path.exists(legacy_students):
         try:
             df = pd.read_csv(legacy_students, dtype=str).fillna("")
             df = df.rename(columns={
-                "Boy / Girl": "Gender",
-                "First Name": "Name",
-                "Last Name": "Surname",
-                "Student Code": "Code",
-                "ID": "Code",
+                "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
+                "Student Code":"Code", "ID":"Code"
             })
             for c in df.columns: df[c] = df[c].astype(str).str.strip()
             if "Code" not in df.columns: df["Code"] = ""
             if "Gender" not in df.columns: df["Gender"] = ""
             df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
         except Exception as e:
-            st.warning(f"Could not migrate legacy students: {e}")
+            st.warning(f"Could not migrate legacy students file: {e}")
 
-    # Books
     if _file_rowcount(BOOKS_CSV) == 0 and os.path.exists(legacy_books):
         try:
             df = pd.read_csv(legacy_books, dtype=str).fillna("")
@@ -165,9 +189,8 @@ def ensure_files():
             if "Status" not in df.columns: df["Status"] = "Available"
             df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
         except Exception as e:
-            st.warning(f"Could not migrate legacy books: {e}")
+            st.warning(f"Could not migrate legacy books file: {e}")
 
-    # Logs
     if _file_rowcount(LOG_CSV) == 0 and os.path.exists(legacy_logs):
         try:
             df = pd.read_csv(legacy_logs, dtype=str).fillna("")
@@ -176,32 +199,24 @@ def ensure_files():
             if "Returned" not in df.columns: df["Returned"] = "No"
             df.to_csv(LOG_CSV, index=False, encoding="utf-8")
         except Exception as e:
-            st.warning(f"Could not migrate legacy logs: {e}")
+            st.warning(f"Could not migrate legacy logs file: {e}")
 
 def load_students():
     df = pd.read_csv(STUDENT_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    # normalize possible old headers
     df = df.rename(columns={
-        "Boy / Girl": "Gender",
-        "First Name": "Name",
-        "Last Name": "Surname",
-        "Student Code": "Code",
-        "ID": "Code",
+        "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
+        "Student Code":"Code", "ID":"Code"
     })
-    if "Code" not in df.columns:
-        df["Code"] = ""
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
+    if "Code" not in df.columns: df["Code"] = ""
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
     return df
 
 def load_books():
     df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    if "Status" not in df.columns:
-        df["Status"] = "Available"
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
+    if "Status" not in df.columns: df["Status"] = "Available"
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
     if "Book Title" in df.columns and "Book ID" in df.columns:
         df = df[~((df["Book Title"] == "") & (df["Book ID"] == ""))].copy()
     df["Status"] = (
@@ -214,40 +229,26 @@ def load_books():
 def load_logs():
     df = pd.read_csv(LOG_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
+    for c in df.columns: df[c] = df[c].astype(str).str.strip()
     return df
 
-# ------- Save: local + GitHub commit ----------
 def save_students(df):
     df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        repo, branch, base_path = _gh_paths()
-        csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
-        _gh_put_file(repo, branch, f"{base_path}/Student_records.csv", csv_bytes,
-                     "Update Student_records.csv via Streamlit app")
+        _gh_put_csv(STUDENT_CSV, "Student_records.csv", "Update Student_records.csv via Streamlit app")
 
 def save_books(df):
     df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        repo, branch, base_path = _gh_paths()
-        csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
-        _gh_put_file(repo, branch, f"{base_path}/Library_books.csv", csv_bytes,
-                     "Update Library_books.csv via Streamlit app")
+        _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
 
 def save_logs(df):
     df.to_csv(LOG_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        repo, branch, base_path = _gh_paths()
-        csv_bytes = df.to_csv(index=False, encoding="utf-8").encode("utf-8")
-        _gh_put_file(repo, branch, f"{base_path}/Borrow_log.csv", csv_bytes,
-                     "Update Borrow_log.csv via Streamlit app")
-
-def df_append(df, row_dict):
-    return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
+        _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
 
 # ======================================================
-# Main Library System
+# Main App
 # ======================================================
 def main():
     ensure_files()
@@ -255,7 +256,7 @@ def main():
     books = load_books()
     logs = load_logs()
 
-    # Sidebar status
+    # Sidebar
     with st.sidebar:
         st.success(f"🔓 Logged in as: {st.session_state.get('username','')}")
         if st.button("🚪 Logout"):
@@ -267,39 +268,38 @@ def main():
         st.caption(f"Students rows: **{len(students)}**")
         st.caption(f"Books rows: **{len(books)}**")
         st.caption(f"Logs rows: **{len(logs)}**")
+        status, color = _gh_self_test()
+        st.markdown(f"**GitHub:** <span style='color:{color}'>{status}</span>", unsafe_allow_html=True)
 
-    # Optional logo (assets/chi-logo.png)
-    logo_path = os.path.join(BASE_DIR, "assets", "chi-logo.png")
+    # Logo (optional)
+    logo_path = os.path.join("assets", "chi-logo.png")
     if os.path.exists(logo_path):
-        with open(logo_path, "rb") as image_file:
-            encoded = base64.b64encode(image_file.read()).decode()
+        with open(logo_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
         st.markdown(
             "<div style='text-align:center; margin-top:8px;'>"
             f"<img src='data:image/png;base64,{encoded}' width='150'>"
-            "</div>",
-            unsafe_allow_html=True,
+            "</div>", unsafe_allow_html=True
         )
 
     st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Saturday Tutor Class Library System</h1>", unsafe_allow_html=True)
 
     # Top metrics
-    total_books = books["Book Title"].str.strip().ne("").sum() if "Book Title" in books.columns else 0
-    available_count = (((books["Status"] == "Available") & books["Book Title"].str.strip().ne("")).sum()
-                       if "Status" in books.columns and "Book Title" in books.columns else 0)
-    open_borrows = logs["Returned"].str.lower().eq("no").sum() if "Returned" in logs.columns else 0
+    total_books = books.get("Book Title", pd.Series(dtype=str)).str.strip().ne("").sum()
+    available_count = (((books.get("Status","") == "Available") & (books.get("Book Title","").str.strip().ne(""))).sum())
+    open_borrows = logs.get("Returned", pd.Series(dtype=str)).str.lower().eq("no").sum()
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Students", len(students))
-    col2.metric("Books", int(total_books))
-    col3.metric("Available", int(available_count))
-    col4.metric("Borrowed (open)", int(open_borrows))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Students", len(students))
+    c2.metric("Books", int(total_books))
+    c3.metric("Available", int(available_count))
+    c4.metric("Borrowed (open)", int(open_borrows))
 
     tabs = st.tabs(["📖 Borrow", "📦 Return", "➕ Add", "🗑️ Delete", "📜 Logs", "📈 Analytics"])
 
     # ---------------------- Borrow ----------------------
     with tabs[0]:
         st.subheader("Borrow a Book")
-
         include_borrowed = st.checkbox("Show borrowed books (for back capture / corrections)", value=False)
 
         # Students
@@ -349,7 +349,6 @@ def main():
                     logs = df_append(logs, new_row)
                     save_logs(logs)
 
-                    # Mark as borrowed in catalog
                     if "Status" in books.columns:
                         books.loc[books["Book Title"] == selected_book, "Status"] = "Borrowed"
                         save_books(books)
@@ -362,14 +361,14 @@ def main():
         if logs.empty or "Returned" not in logs.columns:
             st.info("No books currently borrowed.")
         else:
-            open_logs = logs[logs["Returned"].str.lower() == "no"].copy()
-            if open_logs.empty:
+            open_logs_df = logs[logs["Returned"].str.lower() == "no"].copy()
+            if open_logs_df.empty:
                 st.info("No books currently borrowed.")
             else:
-                open_logs["Label"] = open_logs["Student"] + " - " + open_logs["Book Title"]
-                selected_return = st.selectbox("Choose to Return", open_logs["Label"])
+                open_logs_df["Label"] = open_logs_df["Student"] + " - " + open_logs_df["Book Title"]
+                selected_return = st.selectbox("Choose to Return", open_logs_df["Label"])
                 if st.button("📦 Mark as Returned"):
-                    row = open_logs[open_logs["Label"] == selected_return].iloc[0]
+                    row = open_logs_df[open_logs_df["Label"] == selected_return].iloc[0]
                     idx = logs[
                         (logs["Student"] == row["Student"]) &
                         (logs["Book Title"] == row["Book Title"]) &
@@ -434,10 +433,10 @@ def main():
             to_delete = st.selectbox("Select student to delete", student_list)
             if st.button("Delete Student"):
                 if to_delete:
-                    # split last word as surname (handles middle names)
-                    parts = to_delete.split()
-                    name_part = " ".join(parts[:-1])
-                    surname_part = parts[-1]
+                    # robust split: last token = surname; everything left = name
+                    parts = to_delete.strip().split()
+                    name_part = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
+                    surname_part = parts[-1] if len(parts) > 1 else ""
                     mask = (students["Name"] == name_part) & (students["Surname"] == surname_part)
                     students = students[~mask]
                     save_students(students)
@@ -450,7 +449,7 @@ def main():
                 save_books(books)
                 st.success("Book deleted.")
 
-    # ---------------------- Logs (View + Add/Back-Capture + Edit/Delete) ----------------------
+    # ---------------------- Logs (view/add/edit/delete) ----------------------
     with tabs[4]:
         st.subheader("📜 Borrow Log")
 
@@ -459,7 +458,7 @@ def main():
         books = load_books()
         students = load_students()
 
-        # ---------- VIEW ----------
+        # View
         logs_display = logs.copy()
         if logs_display.empty:
             st.info("No logs yet.")
@@ -473,21 +472,16 @@ def main():
                 else 0,
                 axis=1
             )
-
             def highlight_overdue(row):
                 if str(row.get("Returned","no")).lower() == "no" and pd.notna(row.get("Due Date")) and row["Due Date"] < now:
                     return ['background-color: #ffdddd'] * len(row)
                 return [''] * len(row)
-
             st.dataframe(logs_display.style.apply(highlight_overdue, axis=1), use_container_width=True)
             st.download_button("Download CSV", logs_display.to_csv(index=False), file_name="Borrow_log.csv", mime="text/csv")
 
         st.markdown("---")
 
-        def _ts(d, t):
-            return datetime.combine(d, t).strftime("%Y-%m-%d %H:%M:%S")
-
-        # ---------- ADD / BACK-CAPTURE ----------
+        # Add / back-capture
         with st.expander("➕ Add / Back-capture a Borrow"):
             student_names2 = []
             if {"Name", "Surname"}.issubset(students.columns):
@@ -534,7 +528,7 @@ def main():
                     st.success("Back-captured borrow saved.")
                     st.rerun()
 
-        # ---------- EDIT EXISTING ----------
+        # Edit
         with st.expander("✏️ Edit an Existing Log"):
             if logs.empty:
                 st.info("Nothing to edit yet.")
@@ -548,10 +542,8 @@ def main():
                 e_student = st.text_input("Student", value=row["Student"], key="edit_student")
                 e_book    = st.text_input("Book Title", value=row["Book Title"], key="edit_book")
 
-                rb = pd.to_datetime(row.get("Date Borrowed", ""), errors="coerce")
-                if pd.isna(rb): rb = datetime.now()
-                rd = pd.to_datetime(row.get("Due Date", ""), errors="coerce")
-                if pd.isna(rd): rd = datetime.now() + timedelta(days=14)
+                rb = _safe_to_datetime(row.get("Date Borrowed", "")) or datetime.now()
+                rd = _safe_to_datetime(row.get("Due Date", "")) or (datetime.now() + timedelta(days=14))
 
                 col1, col2 = st.columns(2)
                 e_db = col1.date_input("Date Borrowed", value=rb.date(), key="edit_db")
@@ -576,7 +568,6 @@ def main():
                     logs.loc[idx, "Date Borrowed"] = _ts(e_db, e_tb)
                     logs.loc[idx, "Due Date"]      = _ts(e_dd, e_td)
                     logs.loc[idx, "Returned"]      = e_returned
-
                     save_logs(logs)
 
                     if "Status" in books.columns:
@@ -645,4 +636,3 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
-
