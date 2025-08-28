@@ -56,28 +56,28 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
         "message": message,
         "branch": branch,
         "content": base64.b64encode(content_bytes).decode("utf-8"),
+        "committer": {"name": "Streamlit Bot", "email": "actions@users.noreply.github.com"},
     }
     if sha:
         payload["sha"] = sha
+
     r = requests.put(url, headers=_gh_headers(), json=payload, timeout=30)
+
+    # If the branch is protected or we hit another policy, GitHub returns a clear message.
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"GitHub save failed: {r.status_code} {r.text}")
+        try:
+            body = r.json()
+            msg = body.get("message", "")
+            doc = body.get("documentation_url", "")
+        except Exception:
+            msg = r.text
+            doc = ""
+        raise RuntimeError(
+            f"GitHub save failed ({r.status_code}). Repo='{repo}', branch='{branch}', path='{path}'. "
+            f"Message: {msg} {doc}"
+        )
     return r.json()
 
-def _gh_try_pull(local_path, repo_rel_path):
-    """If local CSV is missing, pull the latest from GitHub raw."""
-    try:
-        if os.path.exists(local_path) or not _gh_enabled():
-            return
-        repo, branch, base_path = _gh_paths()
-        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{base_path}/{repo_rel_path}"
-        r = requests.get(url, timeout=20)
-        if r.ok and r.text.strip():
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            with open(local_path, "w", encoding="utf-8") as f:
-                f.write(r.text)
-    except Exception as e:
-        st.warning(f"Could not pull {repo_rel_path} from GitHub: {e}")
 
 # Pull latest CSVs from GitHub if they don’t exist locally (fresh boot)
 _gh_try_pull(STUDENT_CSV, "Student_records.csv")
@@ -645,3 +645,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
