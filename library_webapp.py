@@ -146,6 +146,43 @@ def _gh_put_csv(local_path, repo_rel_path, message):
     path = f"{base_path}/{repo_rel_path}".lstrip("/")
     return _gh_put_file(repo, branch, path, csv_bytes, message)
 
+# ==== GitHub CSV loader (read from GitHub first) ====
+def _gh_get_csv(repo_rel_path: str):
+    """
+    Try to read a CSV from GitHub first.
+    - Works with public repos via raw.githubusercontent.com
+    - Falls back to GitHub Contents API (handles private repos)
+    Returns a pandas DataFrame or None on failure.
+    """
+    if not _gh_enabled():
+        return None
+
+    try:
+        import io
+
+        token, repo, branch, base_path = _gh_conf()
+        rel_path = f"{base_path}/{repo_rel_path}".lstrip("/")
+
+        # 1) Try raw URL (best for public repos)
+        raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_path}"
+        r = requests.get(raw_url, timeout=20)
+        if r.status_code == 200:
+            return pd.read_csv(io.StringIO(r.text), dtype=str).fillna("")
+
+        # 2) Fallback: GitHub Contents API (works with private repos)
+        api_url = f"https://api.github.com/repos/{repo}/contents/{rel_path}?ref={branch}"
+        r = requests.get(api_url, headers=_gh_headers(), timeout=20)
+        if r.status_code == 200:
+            j = r.json()
+            if j.get("encoding") == "base64" and j.get("content"):
+                csv_bytes = base64.b64decode(j["content"])
+                return pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
+    except Exception as e:
+        # Keep UI friendly; just return None so we fall back to local
+        st.warning(f"Could not load {repo_rel_path} from GitHub: {e}")
+
+    return None
+
 # ======================================================
 # CSV Utilities (+ one-time migration)
 # ======================================================
@@ -753,3 +790,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
