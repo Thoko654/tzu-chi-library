@@ -24,7 +24,7 @@ LOG_CSV     = os.path.join(DATA_DIR, "Borrow_log.csv")
 # ======================================================
 # Auth (simple)
 # ======================================================
-def hash_password(p): 
+def hash_password(p):
     return hashlib.sha256(p.encode()).hexdigest()
 
 USERS = {
@@ -55,7 +55,7 @@ def _safe_to_datetime(s):
     """Coerce various strings to datetime; return None if cannot parse."""
     try:
         dt = pd.to_datetime(s, errors="coerce")
-        if pd.isna(dt): 
+        if pd.isna(dt):
             return None
         return dt.to_pydatetime()
     except Exception:
@@ -146,66 +146,11 @@ def _gh_put_csv(local_path, repo_rel_path, message):
     path = f"{base_path}/{repo_rel_path}".lstrip("/")
     return _gh_put_file(repo, branch, path, csv_bytes, message)
 
-def _try_refresh_from_github(local_path: str, repo_filename: str):
-    """
-    If GitHub sync is enabled, fetch the latest CSV for `repo_filename`
-    from the repo and write it to `local_path`. Silently skips on failure.
-    """
-    if not _gh_enabled():
-        return
-    try:
-        # _gh_get_csv was added in Step 1
-        content = _gh_get_csv(repo_filename)
-        if content:
-            # Write the freshest copy locally so the app reads it
-            with open(local_path, "wb") as f:
-                f.write(content)
-    except Exception:
-        # Don't block the app if GitHub fetch fails; just keep local copy
-        pass
-
-# ==== GitHub CSV loader (read from GitHub first) ====
-def _gh_get_csv(repo_rel_path: str):
-    """
-    Try to read a CSV from GitHub first.
-    - Works with public repos via raw.githubusercontent.com
-    - Falls back to GitHub Contents API (handles private repos)
-    Returns a pandas DataFrame or None on failure.
-    """
-    if not _gh_enabled():
-        return None
-
-    try:
-        import io
-
-        token, repo, branch, base_path = _gh_conf()
-        rel_path = f"{base_path}/{repo_rel_path}".lstrip("/")
-
-        # 1) Try raw URL (best for public repos)
-        raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_path}"
-        r = requests.get(raw_url, timeout=20)
-        if r.status_code == 200:
-            return pd.read_csv(io.StringIO(r.text), dtype=str).fillna("")
-
-        # 2) Fallback: GitHub Contents API (works with private repos)
-        api_url = f"https://api.github.com/repos/{repo}/contents/{rel_path}?ref={branch}"
-        r = requests.get(api_url, headers=_gh_headers(), timeout=20)
-        if r.status_code == 200:
-            j = r.json()
-            if j.get("encoding") == "base64" and j.get("content"):
-                csv_bytes = base64.b64decode(j["content"])
-                return pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
-    except Exception as e:
-        # Keep UI friendly; just return None so we fall back to local
-        st.warning(f"Could not load {repo_rel_path} from GitHub: {e}")
-
-    return None
-
 # ======================================================
 # CSV Utilities (+ one-time migration)
 # ======================================================
 def _file_rowcount(path: str) -> int:
-    if not os.path.exists(path): 
+    if not os.path.exists(path):
         return 0
     try:
         return len(pd.read_csv(path, dtype=str))
@@ -233,11 +178,11 @@ def ensure_files():
                 "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
                 "Student Code":"Code", "ID":"Code"
             })
-            for c in df.columns: 
+            for c in df.columns:
                 df[c] = df[c].astype(str).str.strip()
-            if "Code" not in df.columns: 
+            if "Code" not in df.columns:
                 df["Code"] = ""
-            if "Gender" not in df.columns: 
+            if "Gender" not in df.columns:
                 df["Gender"] = ""
             df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
         except Exception as e:
@@ -246,9 +191,9 @@ def ensure_files():
     if _file_rowcount(BOOKS_CSV) == 0 and os.path.exists(legacy_books):
         try:
             df = pd.read_csv(legacy_books, dtype=str).fillna("")
-            for c in df.columns: 
+            for c in df.columns:
                 df[c] = df[c].astype(str).str.strip()
-            if "Status" not in df.columns: 
+            if "Status" not in df.columns:
                 df["Status"] = "Available"
             df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
         except Exception as e:
@@ -257,11 +202,11 @@ def ensure_files():
     if _file_rowcount(LOG_CSV) == 0 and os.path.exists(legacy_logs):
         try:
             df = pd.read_csv(legacy_logs, dtype=str).fillna("")
-            for c in df.columns: 
+            for c in df.columns:
                 df[c] = df[c].astype(str).str.strip()
-            if "Book ID" not in df.columns: 
+            if "Book ID" not in df.columns:
                 df["Book ID"] = ""
-            if "Returned" not in df.columns: 
+            if "Returned" not in df.columns:
                 df["Returned"] = "No"
             df.to_csv(LOG_CSV, index=False, encoding="utf-8")
         except Exception as e:
@@ -274,18 +219,18 @@ def load_students():
         "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
         "Student Code":"Code", "ID":"Code"
     })
-    if "Code" not in df.columns: 
+    if "Code" not in df.columns:
         df["Code"] = ""
-    for c in df.columns: 
+    for c in df.columns:
         df[c] = df[c].astype(str).str.strip()
     return df
 
 def load_books():
     df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    if "Status" not in df.columns: 
+    if "Status" not in df.columns:
         df["Status"] = "Available"
-    for c in df.columns: 
+    for c in df.columns:
         df[c] = df[c].astype(str).str.strip()
     if "Book Title" in df.columns and "Book ID" in df.columns:
         df = df[~((df["Book Title"] == "") & (df["Book ID"] == ""))].copy()
@@ -299,7 +244,7 @@ def load_books():
 def load_logs():
     df = pd.read_csv(LOG_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
-    for c in df.columns: 
+    for c in df.columns:
         df[c] = df[c].astype(str).str.strip()
     return df
 
@@ -355,19 +300,41 @@ def main():
 
     st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Saturday Tutor Class Library System</h1>", unsafe_allow_html=True)
 
-    # Top metrics
-    total_books = books.get("Book Title", pd.Series(dtype=str)).str.strip().ne("").sum()
-    available_count = (
-        (books.get("Status", pd.Series(dtype=str)).eq("Available")) &
-        (books.get("Book Title", pd.Series(dtype=str)).str.strip().ne(""))
-    ).sum()
-    open_borrows = logs.get("Returned", pd.Series(dtype=str)).str.lower().eq("no").sum()
+    # ---------- Top metrics (now derived from books Status so it matches Catalog) ----------
+    book_titles = books.get("Book Title", pd.Series(dtype=str)).astype(str).str.strip()
+    book_status = books.get("Status", pd.Series(dtype=str)).astype(str).str.lower()
+
+    total_books     = (book_titles != "").sum()
+    available_count = ((book_titles != "") & (book_status == "available")).sum()
+    borrowed_open   = (book_status == "borrowed").sum()  # <- matches Catalog
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Students", len(students))
     c2.metric("Books", int(total_books))
     c3.metric("Available", int(available_count))
-    c4.metric("Borrowed (open)", int(open_borrows))
+    c4.metric("Borrowed (open)", int(borrowed_open))
+
+    # Optional: small health check to catch Catalog vs Log mismatches
+    open_logs_df = pd.DataFrame()
+    if not logs.empty and "Returned" in logs.columns:
+        open_logs_df = logs.loc[logs["Returned"].str.lower() == "no", ["Book Title"]].copy()
+        open_logs_df["Book Title"] = open_logs_df["Book Title"].astype(str).str.strip()
+    borrowed_in_catalog = books.loc[books["Status"].str.lower() == "borrowed", "Book Title"].astype(str).str.strip()
+
+    missing_log = sorted(set(borrowed_in_catalog) - set(open_logs_df.get("Book Title", pd.Series(dtype=str))))
+    available_titles = set(books.loc[books["Status"].str.lower() == "available", "Book Title"].astype(str).str.strip())
+    log_but_available = sorted(set(open_logs_df.get("Book Title", pd.Series(dtype=str))) & available_titles)
+
+    if missing_log or log_but_available:
+        with st.expander("⚠️ Status health check"):
+            if missing_log:
+                st.warning("Books **Borrowed** in Catalog but no open log:")
+                st.write(missing_log)
+            if log_but_available:
+                st.warning("Books have an **open log** but Catalog says **Available**:")
+                st.write(log_but_available)
+    else:
+        st.caption("✅ Catalog and Log statuses look consistent.")
 
     tabs = st.tabs(["📖 Borrow", "📦 Return", "➕ Add", "🗑️ Delete", "📘 Catalog", "📜 Logs", "📈 Analytics"])
 
@@ -410,7 +377,7 @@ def main():
                     book_id = ""
                     if "Book ID" in books.columns:
                         sel = books.loc[books["Book Title"] == selected_book, "Book ID"]
-                        if len(sel): 
+                        if len(sel):
                             book_id = sel.iloc[0]
 
                     new_row = {
@@ -436,14 +403,14 @@ def main():
         if logs.empty or "Returned" not in logs.columns:
             st.info("No books currently borrowed.")
         else:
-            open_logs_df = logs[logs["Returned"].str.lower() == "no"].copy()
-            if open_logs_df.empty:
+            open_logs_view = logs[logs["Returned"].str.lower() == "no"].copy()
+            if open_logs_view.empty:
                 st.info("No books currently borrowed.")
             else:
-                open_logs_df["Label"] = open_logs_df["Student"] + " - " + open_logs_df["Book Title"]
-                selected_return = st.selectbox("Choose to Return", open_logs_df["Label"])
+                open_logs_view["Label"] = open_logs_view["Student"] + " - " + open_logs_view["Book Title"]
+                selected_return = st.selectbox("Choose to Return", open_logs_view["Label"])
                 if st.button("📦 Mark as Returned"):
-                    row = open_logs_df[open_logs_df["Label"] == selected_return].iloc[0]
+                    row = open_logs_view[open_logs_view["Label"] == selected_return].iloc[0]
                     idx = logs[
                         (logs["Student"] == row["Student"]) &
                         (logs["Book Title"] == row["Book Title"]) &
@@ -531,14 +498,12 @@ def main():
         if books.empty or "Book Title" not in books.columns:
             st.info("No books yet. Use the ➕ Add tab to add some.")
         else:
-            # Filters
             col_f1, col_f2 = st.columns([2, 1])
             search = col_f1.text_input("🔍 Search by title/author/ID", "")
             only_available = col_f2.checkbox("Show only Available", value=False)
 
             df = books.copy()
 
-            # apply filters
             if search.strip():
                 q = search.strip().lower()
                 df = df[
@@ -550,12 +515,10 @@ def main():
             if only_available and "Status" in df.columns:
                 df = df[df["Status"].str.lower().eq("available")].copy()
 
-            # ensure required columns exist
             for c in ["Book ID", "Book Title", "Author", "Status"]:
                 if c not in df.columns:
                     df[c] = ""
 
-            # Keep original row indices so we can write back
             df["_row_id"] = df.index
 
             st.caption("Tip: edit cells directly; add/remove rows with the table toolbar. Click **Save changes** to persist.")
@@ -577,12 +540,10 @@ def main():
                 key="catalog_editor",
             )
 
-            # Validate and save
             save_col1, _ = st.columns([1, 5])
             if save_col1.button("💾 Save changes"):
                 updated = books.copy()
 
-                # Update existing rows
                 to_update = edited.dropna(subset=["_row_id"]).copy()
                 to_update["_row_id"] = to_update["_row_id"].astype(int)
                 for _, r in to_update.iterrows():
@@ -594,7 +555,6 @@ def main():
                         status = str(r.get("Status", "")).strip().lower()
                         updated.loc[ridx, "Status"] = "Borrowed" if status in {"borrowed", "out", "issued"} else "Available"
 
-                # New rows
                 new_rows = edited[edited["_row_id"].isna() | ~edited["_row_id"].astype("Int64").isin(updated.index)]
                 for _, r in new_rows.iterrows():
                     new_rec = {
@@ -606,7 +566,6 @@ def main():
                     if new_rec["Book Title"]:
                         updated = pd.concat([updated, pd.DataFrame([new_rec])], ignore_index=True)
 
-                # Tidy
                 for c in ["Book ID", "Book Title", "Author", "Status"]:
                     if c not in updated.columns:
                         updated[c] = ""
@@ -624,12 +583,10 @@ def main():
     with tabs[5]:
         st.subheader("📜 Borrow Log")
 
-        # Always reload latest when changing logs
         logs = load_logs()
         books = load_books()
         students = load_students()
 
-        # View
         logs_display = logs.copy()
         if logs_display.empty:
             st.info("No logs yet.")
@@ -652,7 +609,6 @@ def main():
 
         st.markdown("---")
 
-        # Add / back-capture
         with st.expander("➕ Add / Back-capture a Borrow"):
             student_names2 = []
             if {"Name", "Surname"}.issubset(students.columns):
@@ -679,7 +635,7 @@ def main():
                     book_id = ""
                     if "Book ID" in books.columns:
                         sel = books.loc[books["Book Title"] == sel_book, "Book ID"]
-                        if len(sel): 
+                        if len(sel):
                             book_id = sel.iloc[0]
 
                     new_row = {
@@ -700,7 +656,6 @@ def main():
                     st.success("Back-captured borrow saved.")
                     st.rerun()
 
-        # Edit
         with st.expander("✏️ Edit an Existing Log"):
             if logs.empty:
                 st.info("Nothing to edit yet.")
@@ -808,5 +763,3 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
-
-
