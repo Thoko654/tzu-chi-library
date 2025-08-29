@@ -146,6 +146,24 @@ def _gh_put_csv(local_path, repo_rel_path, message):
     path = f"{base_path}/{repo_rel_path}".lstrip("/")
     return _gh_put_file(repo, branch, path, csv_bytes, message)
 
+def _try_refresh_from_github(local_path: str, repo_filename: str):
+    """
+    If GitHub sync is enabled, fetch the latest CSV for `repo_filename`
+    from the repo and write it to `local_path`. Silently skips on failure.
+    """
+    if not _gh_enabled():
+        return
+    try:
+        # _gh_get_csv was added in Step 1
+        content = _gh_get_csv(repo_filename)
+        if content:
+            # Write the freshest copy locally so the app reads it
+            with open(local_path, "wb") as f:
+                f.write(content)
+    except Exception:
+        # Don't block the app if GitHub fetch fails; just keep local copy
+        pass
+
 # ==== GitHub CSV loader (read from GitHub first) ====
 def _gh_get_csv(repo_rel_path: str):
     """
@@ -790,4 +808,5 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
 
