@@ -192,11 +192,13 @@ def ensure_files():
         pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
-
-    # try to refresh local copies from GitHub (safe to fail)
-    if _gh_enabled():
+        # pull from GitHub only if the local file is still empty
+if _gh_enabled():
+    if _file_rowcount(STUDENT_CSV) == 0:
         _refresh_from_github(STUDENT_CSV, "Student_records.csv")
+    if _file_rowcount(BOOKS_CSV) == 0:
         _refresh_from_github(BOOKS_CSV,   "Library_books.csv")
+    if _file_rowcount(LOG_CSV) == 0:
         _refresh_from_github(LOG_CSV,     "Borrow_log.csv")
 
     # migrate legacy files in repo root → data/ (only if still empty)
@@ -852,3 +854,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
