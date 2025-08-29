@@ -145,10 +145,14 @@ def _gh_fetch_bytes(repo_rel_path: str):
     try:
         token, repo, branch, base_path = _gh_conf()
         rel_path = f"{base_path}/{repo_rel_path}".lstrip("/")
+
+        # Try raw (public)
         raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_path}"
         r = requests.get(raw_url, timeout=20)
         if r.status_code == 200:
             return r.content
+
+        # Fallback: Contents API (private)
         api_url = f"https://api.github.com/repos/{repo}/contents/{rel_path}?ref={branch}"
         r = requests.get(api_url, headers=_gh_headers(), timeout=20)
         if r.status_code == 200:
@@ -336,12 +340,12 @@ def save_books(df):
         _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
 
 # ======================================================
-# Catalog↔Log sync helper
+# Catalog↔Log sync helper (borrower-assignment)
 # ======================================================
-def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
+def build_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame, title_to_student: dict):
     """
-    Create open log rows for any Catalog book with Status=Borrowed that has no open log (Returned = No).
-    Student is left blank so you can fill it later in '✏️ Edit an Existing Log'.
+    Build open log rows for any Catalog book with Status=Borrowed that has no open log (Returned = No).
+    Uses title_to_student mapping to set Student.
     """
     borrowed_titles = set(
         books_df.loc[books_df["Status"].str.lower() == "borrowed", "Book Title"]
@@ -366,7 +370,7 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
             if len(sel):
                 bid = str(sel.iloc[0]).strip()
         new_rows.append({
-            "Student": "",
+            "Student": str(title_to_student.get(title, "")).strip(),
             "Book Title": title,
             "Book ID": bid,
             "Date Borrowed": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -427,7 +431,7 @@ def main():
     c3.metric("Available", int(available_count))
     c4.metric("Borrowed (open)", int(borrowed_open))
 
-    # Health check between Catalog and Logs
+    # ---------- Health check + borrower assignment ----------
     open_logs_df = pd.DataFrame()
     if not logs.empty and "Returned" in logs.columns:
         open_logs_df = logs.loc[logs["Returned"].str.lower() == "no", ["Book Title"]].copy()
@@ -437,31 +441,39 @@ def main():
     available_titles = set(books.loc[books["Status"].str.lower() == "available", "Book Title"].astype(str).str.strip())
     log_but_available = sorted(set(open_logs_df.get("Book Title", pd.Series(dtype=str))) & available_titles)
 
-    # Auto-sync once per session so borrowed books appear in logs
-    if (missing_log) and not st.session_state.get("logs_autosynced"):
-        logs_new, created = sync_missing_open_logs(books, logs)
-        if created:
-            save_logs(logs_new)
-            st.session_state["logs_autosynced"] = True
-            st.toast(f"Created {len(created)} open log(s) for borrowed books.", icon="✅")
-            st.rerun()
-
     if missing_log or log_but_available:
         with st.expander("⚠️ Status health check"):
             if missing_log:
-                st.warning("Books **Borrowed** in Catalog but no open log:")
-                st.write(missing_log)
+                st.warning("Books **Borrowed** in Catalog but no open log (assign a borrower for each):")
+
+                # Student choices
+                if {"Name", "Surname"}.issubset(students.columns):
+                    student_choices = sorted((students["Name"].str.strip() + " " + students["Surname"].str.strip()).tolist())
+                else:
+                    student_choices = []
+
+                with st.form("assign_missing_borrowers"):
+                    title_to_student = {}
+                    for title in missing_log:
+                        title_to_student[title] = st.selectbox(
+                            f"Borrower for: {title}",
+                            options=[""] + student_choices,
+                            index=0,
+                            key=f"assign_{title}"
+                        )
+                    submitted = st.form_submit_button("🔗 Create open logs with selected borrowers")
+                if submitted:
+                    new_logs, created_titles = build_missing_open_logs(books, load_logs(), title_to_student)
+                    if created_titles:
+                        save_logs(new_logs)
+                        st.success(f"Created {len(created_titles)} open log(s).")
+                        st.rerun()
+                    else:
+                        st.info("Nothing to sync — all borrowed books already have open logs.")
+
             if log_but_available:
                 st.warning("Books have an **open log** but Catalog says **Available**:")
                 st.write(log_but_available)
-            if st.button("🔗 Create open logs for borrowed books (quick sync)"):
-                logs_new, created = sync_missing_open_logs(books, logs)
-                if created:
-                    save_logs(logs_new)
-                    st.success(f"Created {len(created)} open log(s). You can fill in Student names in **✏️ Edit an Existing Log**.")
-                    st.rerun()
-                else:
-                    st.info("Nothing to sync — all borrowed books already have open logs.")
     else:
         st.caption("✅ Catalog and Log statuses look consistent.")
 
