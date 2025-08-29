@@ -23,7 +23,8 @@ LOG_CSV     = os.path.join(DATA_DIR, "Borrow_log.csv")
 # ======================================================
 # Auth (simple)
 # ======================================================
-def hash_password(p): return hashlib.sha256(p.encode()).hexdigest()
+def hash_password(p): 
+    return hashlib.sha256(p.encode()).hexdigest()
 
 USERS = {
     "admin":   hash_password("admin123"),
@@ -52,7 +53,8 @@ def login_form():
 def _safe_to_datetime(s):
     try:
         dt = pd.to_datetime(s, errors="coerce")
-        if pd.isna(dt): return None
+        if pd.isna(dt): 
+            return None
         return dt.to_pydatetime()
     except Exception:
         return None
@@ -107,7 +109,9 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
             doc = body.get("documentation_url", "")
         except Exception:
             msg, doc = r.text, ""
-        raise RuntimeError(f"GitHub save failed ({r.status_code}). Repo='{repo}', branch='{branch}', path='{path}'. {msg} {doc}")
+        raise RuntimeError(
+            f"GitHub save failed ({r.status_code}). Repo='{repo}', branch='{branch}', path='{path}'. {msg} {doc}"
+        )
     return r.json()
 
 def _gh_self_test():
@@ -134,23 +138,21 @@ def _gh_put_csv(local_path, repo_rel_path, message):
     path = f"{base_path}/{repo_rel_path}".lstrip("/")
     return _gh_put_file(repo, branch, path, csv_bytes, message)
 
-# ---- read latest from GitHub into local (best-effort) ----
 def _gh_fetch_bytes(repo_rel_path: str):
     """Return file bytes from GitHub (raw first, then Contents API)."""
     if not _gh_enabled():
         return None
     try:
-        import io
         token, repo, branch, base_path = _gh_conf()
         rel_path = f"{base_path}/{repo_rel_path}".lstrip("/")
 
-        # raw (public)
+        # Try raw (public)
         raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_path}"
         r = requests.get(raw_url, timeout=20)
         if r.status_code == 200:
             return r.content
 
-        # contents API (private)
+        # Fallback: Contents API (private)
         api_url = f"https://api.github.com/repos/{repo}/contents/{rel_path}?ref={branch}"
         r = requests.get(api_url, headers=_gh_headers(), timeout=20)
         if r.status_code == 200:
@@ -162,7 +164,7 @@ def _gh_fetch_bytes(repo_rel_path: str):
     return None
 
 def _refresh_from_github(local_path: str, repo_filename: str):
-    """If possible, pull newest CSV from GitHub into local_path (does not error on failure)."""
+    """If possible, pull newest CSV from GitHub into local_path."""
     b = _gh_fetch_bytes(repo_filename)
     if b:
         try:
@@ -175,7 +177,8 @@ def _refresh_from_github(local_path: str, repo_filename: str):
 # CSV Utilities (+ one-time migration)
 # ======================================================
 def _file_rowcount(path: str) -> int:
-    if not os.path.exists(path): return 0
+    if not os.path.exists(path): 
+        return 0
     try:
         return len(pd.read_csv(path, dtype=str))
     except Exception:
@@ -190,13 +193,13 @@ def ensure_files():
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
 
-    # attempt to refresh from GitHub (best-effort, safe to fail)
+    # try to refresh local copies from GitHub (safe to fail)
     if _gh_enabled():
         _refresh_from_github(STUDENT_CSV, "Student_records.csv")
         _refresh_from_github(BOOKS_CSV,   "Library_books.csv")
         _refresh_from_github(LOG_CSV,     "Borrow_log.csv")
 
-    # migrate legacy root files into data/ once (only if new file is still empty)
+    # migrate legacy files in repo root → data/ (only if still empty)
     legacy_students = os.path.join(BASE_DIR, "Student_records.csv")
     legacy_books    = os.path.join(BASE_DIR, "Library_books.csv")
     legacy_logs     = os.path.join(BASE_DIR, "Borrow_log.csv")
@@ -208,9 +211,12 @@ def ensure_files():
                 "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
                 "Student Code":"Code", "ID":"Code"
             })
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Code" not in df.columns: df["Code"] = ""
-            if "Gender" not in df.columns: df["Gender"] = ""
+            for c in df.columns: 
+                df[c] = df[c].astype(str).str.strip()
+            if "Code" not in df.columns: 
+                df["Code"] = ""
+            if "Gender" not in df.columns: 
+                df["Gender"] = ""
             df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
         except Exception as e:
             st.warning(f"Could not migrate legacy students file: {e}")
@@ -218,8 +224,10 @@ def ensure_files():
     if _file_rowcount(BOOKS_CSV) == 0 and os.path.exists(legacy_books):
         try:
             df = pd.read_csv(legacy_books, dtype=str).fillna("")
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Status" not in df.columns: df["Status"] = "Available"
+            for c in df.columns: 
+                df[c] = df[c].astype(str).str.strip()
+            if "Status" not in df.columns: 
+                df["Status"] = "Available"
             df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
         except Exception as e:
             st.warning(f"Could not migrate legacy books file: {e}")
@@ -227,9 +235,12 @@ def ensure_files():
     if _file_rowcount(LOG_CSV) == 0 and os.path.exists(legacy_logs):
         try:
             df = pd.read_csv(legacy_logs, dtype=str).fillna("")
-            for c in df.columns: df[c] = df[c].astype(str).str.strip()
-            if "Book ID" not in df.columns: df["Book ID"] = ""
-            if "Returned" not in df.columns: df["Returned"] = "No"
+            for c in df.columns: 
+                df[c] = df[c].astype(str).str.strip()
+            if "Book ID" not in df.columns: 
+                df["Book ID"] = ""
+            if "Returned" not in df.columns: 
+                df["Returned"] = "No"
             df.to_csv(LOG_CSV, index=False, encoding="utf-8")
         except Exception as e:
             st.warning(f"Could not migrate legacy logs file: {e}")
@@ -241,9 +252,10 @@ def load_students():
         "Boy / Girl":"Gender", "First Name":"Name", "Last Name":"Surname",
         "Student Code":"Code", "ID":"Code"
     })
-    if "Code" not in df.columns: df["Code"] = ""
-    for c in df.columns: df[c] = df[c].astype(str).str.strip()
-    # drop accidental Unnamed columns
+    if "Code" not in df.columns: 
+        df["Code"] = ""
+    for c in df.columns: 
+        df[c] = df[c].astype(str).str.strip()
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
     return df
 
@@ -251,8 +263,10 @@ def load_books():
     df = pd.read_csv(BOOKS_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
-    if "Status" not in df.columns: df["Status"] = "Available"
-    for c in df.columns: df[c] = df[c].astype(str).str.strip()
+    if "Status" not in df.columns: 
+        df["Status"] = "Available"
+    for c in df.columns: 
+        df[c] = df[c].astype(str).str.strip()
     if "Book Title" in df.columns and "Book ID" in df.columns:
         df = df[~((df["Book Title"] == "") & (df["Book ID"] == ""))].copy()
     df["Status"] = (
@@ -264,10 +278,25 @@ def load_books():
 
 # ---------- CLEAN, NORMALIZE, AND LOAD LOGS ----------
 def load_logs():
+    """Load Borrow_log.csv and aggressively normalize it."""
     df = pd.read_csv(LOG_CSV, dtype=str, on_bad_lines="skip").fillna("")
     df.columns = df.columns.str.strip()
+
+    # Salvage Book Title from any Unnamed:* columns if Book Title is missing/blank
+    unnamed_cols = [c for c in df.columns if c.startswith("Unnamed")]
+    if "Book Title" not in df.columns:
+        df["Book Title"] = ""
+    if unnamed_cols:
+        tmp = df[unnamed_cols].replace("", pd.NA)
+        # bfill across unnamed columns, take last non-null per row
+        fill_from = tmp.bfill(axis=1).iloc[:, -1].fillna("")
+        df["Book Title"] = df["Book Title"].astype(str).str.strip()
+        df.loc[df["Book Title"] == "", "Book Title"] = fill_from.astype(str).str.strip()
+
+    # Drop unnamed columns now that we've salvaged
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")].copy()
 
+    # Normalize headers
     rename_map = {
         "Book Tittle": "Book Title",
         "Book Title ": "Book Title",
@@ -276,25 +305,29 @@ def load_logs():
         "Borrowed Date": "Date Borrowed",
         "Return": "Returned",
         "Is Returned": "Returned",
-        "Status": "Returned",  # some exports mistakenly used "Status" here
     }
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
-
-    # remove duplicate columns after renaming
     df = df.loc[:, ~df.columns.duplicated()].copy()
 
+    # Ensure required columns
     required = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]
     for c in required:
         if c not in df.columns:
             df[c] = ""
-
     df = df[required].copy()
     for c in required:
         df[c] = df[c].astype(str).str.strip()
 
+    # Normalize Returned
     df["Returned"] = df["Returned"].str.lower().map(
         {"yes":"Yes","y":"Yes","true":"Yes","1":"Yes","no":"No","n":"No","false":"No","0":"No"}
     ).fillna("No")
+
+    # Drop fully-blank rows (typical when CSV had header noise)
+    mask_all_blank = (df[["Student", "Book Title", "Book ID"]]
+                      .apply(lambda s: s.astype(str).str.strip() == "")
+                      .all(axis=1))
+    df = df[~mask_all_blank].reset_index(drop=True)
 
     return df
 
@@ -415,11 +448,11 @@ def main():
 
         if st.button("✅ Confirm Borrow"):
             if selected_student and selected_book:
-                # current status
                 current_status = "Available"
                 if not books.empty and "Status" in books.columns:
                     s = books.loc[books["Book Title"] == selected_book, "Status"]
-                    if len(s): current_status = s.iloc[0]
+                    if len(s): 
+                        current_status = s.iloc[0]
 
                 if current_status == "Borrowed" and not allow_override:
                     st.error("This book is marked as Borrowed. Tick the override checkbox to capture anyway.")
@@ -429,7 +462,8 @@ def main():
                     book_id = ""
                     if "Book ID" in books.columns:
                         sel = books.loc[books["Book Title"] == selected_book, "Book ID"]
-                        if len(sel): book_id = sel.iloc[0]
+                        if len(sel): 
+                            book_id = sel.iloc[0]
 
                     new_row = {
                         "Student": selected_student,
@@ -627,6 +661,7 @@ def main():
     with tabs[5]:
         st.subheader("📜 Borrow Log")
 
+        # one-click repair/normalize of the CSV file
         if st.button("🛠 Clean log columns (fix headers/unnamed)"):
             fixed = load_logs()
             save_logs(fixed)
@@ -655,12 +690,8 @@ def main():
                     return ['background-color: #ffdddd'] * len(row)
                 return [''] * len(row)
 
-            # show the most useful columns first
             show_cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Days Overdue"]
-            st.dataframe(
-                logs_display[show_cols].style.apply(highlight_overdue, axis=1),
-                use_container_width=True
-            )
+            st.dataframe(logs_display[show_cols].style.apply(highlight_overdue, axis=1), use_container_width=True)
             st.download_button("Download CSV", logs_display.to_csv(index=False), file_name="Borrow_log.csv", mime="text/csv")
 
         st.markdown("---")
@@ -692,7 +723,8 @@ def main():
                     book_id = ""
                     if "Book ID" in books.columns:
                         sel = books.loc[books["Book Title"] == sel_book, "Book ID"]
-                        if len(sel): book_id = sel.iloc[0]
+                        if len(sel): 
+                            book_id = sel.iloc[0]
 
                     new_row = {
                         "Student": sel_student,
