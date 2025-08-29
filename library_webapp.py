@@ -52,7 +52,6 @@ def login_form():
 # Helpers — safe ts, df append
 # ======================================================
 def _safe_to_datetime(s):
-    """Coerce various strings to datetime; return None if cannot parse."""
     try:
         dt = pd.to_datetime(s, errors="coerce")
         if pd.isna(dt):
@@ -93,7 +92,6 @@ def _gh_get_sha(repo, branch, path):
     return None
 
 def _gh_put_file(repo, branch, path, content_bytes, message):
-    """Create/update a file in repo via Contents API. Raises with clear message on error."""
     url = f"https://api.github.com/repos/{repo}/contents/{path}"
     sha = _gh_get_sha(repo, branch, path)
     payload = {
@@ -104,7 +102,6 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
     }
     if sha:
         payload["sha"] = sha
-
     r = requests.put(url, headers=_gh_headers(), json=payload, timeout=30)
     if r.status_code not in (200, 201):
         try:
@@ -121,7 +118,6 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
     return r.json()
 
 def _gh_self_test():
-    """Light diagnostic shown in sidebar."""
     if not _gh_enabled():
         return "GitHub OFF", "gray"
     try:
@@ -139,7 +135,6 @@ def _gh_self_test():
         return f"GH check failed: {e}", "red"
 
 def _gh_put_csv(local_path, repo_rel_path, message):
-    """Read local file and push to GitHub path."""
     with open(local_path, "rb") as f:
         csv_bytes = f.read()
     repo, branch, base_path = _gh_paths()
@@ -158,7 +153,6 @@ def _file_rowcount(path: str) -> int:
         return 0
 
 def ensure_files():
-    # Create modern files if missing
     if not os.path.exists(STUDENT_CSV):
         pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if not os.path.exists(BOOKS_CSV):
@@ -166,7 +160,6 @@ def ensure_files():
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
 
-    # Migrate from legacy root files if new file is empty
     legacy_students = os.path.join(BASE_DIR, "Student_records.csv")
     legacy_books    = os.path.join(BASE_DIR, "Library_books.csv")
     legacy_logs     = os.path.join(BASE_DIR, "Borrow_log.csv")
@@ -241,12 +234,52 @@ def load_books():
     )
     return df
 
+# ---------- CLEAN, NORMALIZE, AND LOAD LOGS ----------
 def load_logs():
-    df = pd.read_csv(LOG_CSV, dtype=str).fillna("")
+    df = pd.read_csv(LOG_CSV, dtype=str, on_bad_lines="skip").fillna("")
     df.columns = df.columns.str.strip()
-    for c in df.columns:
+    # drop Unnamed:* columns
+    df = df.loc[:, ~df.columns.str.match(r"^Unnamed")].copy()
+    # common header fixes
+    rename_map = {
+        "Book Tittle": "Book Title",
+        "Book Title ": "Book Title",
+        "Date Due": "Due Date",
+        "Borrow Date": "Date Borrowed",
+        "Borrowed Date": "Date Borrowed",
+        "Return": "Returned",
+        "Is Returned": "Returned",
+        "Status": "Returned",  # in case a wrong export put 'Status' here
+    }
+    df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+
+    required = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]
+    for c in required:
+        if c not in df.columns:
+            df[c] = ""
+
+    df = df[required].copy()
+    for c in required:
         df[c] = df[c].astype(str).str.strip()
+
+    # normalize Returned
+    df["Returned"] = df["Returned"].str.lower().map(
+        {"yes": "Yes", "y": "Yes", "true": "Yes", "1": "Yes",
+         "no": "No", "n": "No", "false": "No", "0": "No"}
+    ).fillna("No")
+
     return df
+
+def save_logs(df):
+    cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned"]
+    out = df.copy()
+    for c in cols:
+        if c not in out.columns:
+            out[c] = ""
+    out = out[cols]
+    out.to_csv(LOG_CSV, index=False, encoding="utf-8")
+    if _gh_enabled():
+        _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
 
 def save_students(df):
     df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
@@ -257,11 +290,6 @@ def save_books(df):
     df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
         _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
-
-def save_logs(df):
-    df.to_csv(LOG_CSV, index=False, encoding="utf-8")
-    if _gh_enabled():
-        _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
 
 # ======================================================
 # Main App
@@ -300,13 +328,12 @@ def main():
 
     st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Saturday Tutor Class Library System</h1>", unsafe_allow_html=True)
 
-    # ---------- Top metrics (now derived from books Status so it matches Catalog) ----------
+    # ---------- Top metrics based on Catalog ----------
     book_titles = books.get("Book Title", pd.Series(dtype=str)).astype(str).str.strip()
     book_status = books.get("Status", pd.Series(dtype=str)).astype(str).str.lower()
-
     total_books     = (book_titles != "").sum()
     available_count = ((book_titles != "") & (book_status == "available")).sum()
-    borrowed_open   = (book_status == "borrowed").sum()  # <- matches Catalog
+    borrowed_open   = (book_status == "borrowed").sum()
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Students", len(students))
@@ -314,17 +341,15 @@ def main():
     c3.metric("Available", int(available_count))
     c4.metric("Borrowed (open)", int(borrowed_open))
 
-    # Optional: small health check to catch Catalog vs Log mismatches
+    # Health check
     open_logs_df = pd.DataFrame()
     if not logs.empty and "Returned" in logs.columns:
         open_logs_df = logs.loc[logs["Returned"].str.lower() == "no", ["Book Title"]].copy()
         open_logs_df["Book Title"] = open_logs_df["Book Title"].astype(str).str.strip()
     borrowed_in_catalog = books.loc[books["Status"].str.lower() == "borrowed", "Book Title"].astype(str).str.strip()
-
     missing_log = sorted(set(borrowed_in_catalog) - set(open_logs_df.get("Book Title", pd.Series(dtype=str))))
     available_titles = set(books.loc[books["Status"].str.lower() == "available", "Book Title"].astype(str).str.strip())
     log_but_available = sorted(set(open_logs_df.get("Book Title", pd.Series(dtype=str))) & available_titles)
-
     if missing_log or log_but_available:
         with st.expander("⚠️ Status health check"):
             if missing_log:
@@ -362,7 +387,6 @@ def main():
 
         if st.button("✅ Confirm Borrow"):
             if selected_student and selected_book:
-                # Check status
                 if not books.empty and "Status" in books.columns:
                     s = books.loc[books["Book Title"] == selected_book, "Status"]
                     current_status = s.iloc[0] if len(s) else "Available"
@@ -503,7 +527,6 @@ def main():
             only_available = col_f2.checkbox("Show only Available", value=False)
 
             df = books.copy()
-
             if search.strip():
                 q = search.strip().lower()
                 df = df[
@@ -511,7 +534,6 @@ def main():
                     | df.get("Author", "").str.lower().str.contains(q, na=False)
                     | df.get("Book ID", "").str.lower().str.contains(q, na=False)
                 ].copy()
-
             if only_available and "Status" in df.columns:
                 df = df[df["Status"].str.lower().eq("available")].copy()
 
@@ -520,7 +542,6 @@ def main():
                     df[c] = ""
 
             df["_row_id"] = df.index
-
             st.caption("Tip: edit cells directly; add/remove rows with the table toolbar. Click **Save changes** to persist.")
             edited = st.data_editor(
                 df[["Book ID", "Book Title", "Author", "Status", "_row_id"]],
@@ -530,11 +551,7 @@ def main():
                     "Book ID": {"help": "Optional unique ID/barcode"},
                     "Book Title": {"help": "Required"},
                     "Author": {"help": "Optional"},
-                    "Status": {
-                        "help": "Available or Borrowed",
-                        "required": False,
-                        "editable": True,
-                    },
+                    "Status": {"help": "Available or Borrowed", "required": False, "editable": True},
                     "_row_id": {"hidden": True},
                 },
                 key="catalog_editor",
@@ -582,6 +599,13 @@ def main():
     # ---------------------- Logs (view/add/edit/delete) ----------------------
     with tabs[5]:
         st.subheader("📜 Borrow Log")
+
+        # one-click repair
+        if st.button("🛠 Clean log columns (fix headers/unnamed)"):
+            fixed = load_logs()
+            save_logs(fixed)
+            st.success("Borrow_log.csv cleaned and normalized.")
+            st.rerun()
 
         logs = load_logs()
         books = load_books()
