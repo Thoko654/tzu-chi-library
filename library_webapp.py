@@ -665,8 +665,116 @@ def main():
                     else:
                         st.error("Could not find the matching borrow record.")
 
-    # ---------------------- Add ----------------------
+    # ---------------------- Borrowed now (open borrows) ----------------------
     with tabs[2]:
+    st.subheader("📋 Borrowed now (not returned)")
+
+    # Always reload to reflect the latest state
+    logs_live = load_logs()
+    books_live = load_books()
+
+    if logs_live.empty or "Returned" not in logs_live.columns:
+        st.info("No borrow records yet.")
+    else:
+        open_df = logs_live[logs_live["Returned"].str.lower() == "no"].copy()
+
+        if open_df.empty:
+            st.success("✅ No books currently out.")
+        else:
+            # nice ordering
+            show_cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date"]
+            for c in show_cols:
+                if c not in open_df.columns:
+                    open_df[c] = ""
+
+            # quick filters
+            c1, c2, c3 = st.columns([2, 2, 1])
+            with c1:
+                sel_student = st.selectbox(
+                    "Filter by student (optional)",
+                    ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
+                    index=0
+                )
+            with c2:
+                sel_book = st.selectbox(
+                    "Filter by book (optional)",
+                    ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
+                    index=0
+                )
+            with c3:
+                st.write("")  # spacing
+                st.write("")
+
+            filt = open_df.copy()
+            if sel_student != "(All)":
+                filt = filt[filt["Student"].astype(str).str.strip() == sel_student]
+            if sel_book != "(All)":
+                filt = filt[filt["Book Title"].astype(str).str.strip() == sel_book]
+
+            # highlight overdue
+            now = datetime.now()
+            filt["Due Date"] = pd.to_datetime(filt["Due Date"], errors="coerce")
+            def _style(row):
+                if pd.notna(row["Due Date"]) and row["Due Date"] < now:
+                    return ['background-color:#ffefef'] * len(row)
+                return [''] * len(row)
+
+            st.dataframe(
+                filt[show_cols].style.apply(_style, axis=1),
+                use_container_width=True
+            )
+
+            # download
+            st.download_button(
+                "⬇️ Download current borrowers (CSV)",
+                filt[show_cols].to_csv(index=False),
+                file_name="borrowed_now.csv",
+                mime="text/csv"
+            )
+
+            st.markdown("---")
+
+            # optional: mark selected row(s) as returned
+            st.caption("Quick action")
+            if not filt.empty:
+                # Build a label to uniquely identify a row
+                filt = filt.assign(
+                    _label=filt["Student"].astype(str) + " | " +
+                           filt["Book Title"].astype(str) + " | " +
+                           filt["Date Borrowed"].astype(str)
+                )
+                to_mark = st.multiselect(
+                    "Select entries to mark as returned",
+                    options=filt["_label"].tolist()
+                )
+                if st.button("✅ Mark selected as returned"):
+                    if to_mark:
+                        logs_edit = logs_live.copy()
+                        for lab in to_mark:
+                            r = filt[filt["_label"] == lab].iloc[0]
+                            mask = (
+                                (logs_edit["Student"] == r["Student"]) &
+                                (logs_edit["Book Title"] == r["Book Title"]) &
+                                (logs_edit["Date Borrowed"] == r["Date Borrowed"].strftime("%Y-%m-%d %H:%M:%S")
+                                    if isinstance(r["Date Borrowed"], pd.Timestamp)
+                                    else str(r["Date Borrowed"]))
+                            )
+                            logs_edit.loc[mask, "Returned"] = "Yes"
+                            # set catalog back to Available
+                            if "Status" in books_live.columns:
+                                books_live.loc[
+                                    books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
+                                    "Status"
+                                ] = "Available"
+                        save_logs(logs_edit)
+                        save_books(books_live)
+                        st.success(f"Marked {len(to_mark)} entr{'y' if len(to_mark)==1 else 'ies'} as returned.")
+                        st.rerun()
+                    else:
+                        st.info("Nothing selected.")
+
+    # ---------------------- Add ----------------------
+    with tabs[3]:
         st.subheader("➕ Add Student or Book")
         opt = st.radio("Add:", ["Student", "Book"], horizontal=True)
 
@@ -707,7 +815,7 @@ def main():
                     st.success("Book added.")
 
     # ---------------------- Delete ----------------------
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("🗑️ Delete Student or Book")
         opt = st.radio("Delete:", ["Student", "Book"], horizontal=True)
 
@@ -737,7 +845,7 @@ def main():
                 st.success("Book deleted.")
 
     # ---------------------- Catalog (View / Edit Books) ----------------------
-    with tabs[4]:
+    with tabs[5]:
         st.subheader("📘 Catalog — View & Edit Books")
 
         books_now = load_books().copy()
@@ -823,7 +931,7 @@ def main():
                 st.rerun()
 
     # ---------------------- Logs (view/add/edit/delete) ----------------------
-    with tabs[5]:
+    with tabs[6]:
         st.subheader("📜 Borrow Log")
 
         if st.button("🛠 Clean log columns (fix headers/unnamed)"):
@@ -978,7 +1086,7 @@ def main():
                     st.rerun()
 
     # ---------------------- Analytics ----------------------
-    with tabs[6]:
+    with tabs[7]:
         st.subheader("📈 Library Analytics Dashboard")
         logs = load_logs()
         if logs.empty:
@@ -1026,3 +1134,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
