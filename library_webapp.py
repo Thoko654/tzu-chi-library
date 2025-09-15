@@ -194,7 +194,6 @@ def ensure_files():
     if not os.path.exists(BOOKS_CSV):
         pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status", "Barcode"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if not os.path.exists(LOG_CSV):
-        # Logs may (optionally) include Barcode; it's okay if the file misses it — we handle that.
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Barcode"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
 
     # pull from GitHub only if the local files are still empty
@@ -506,7 +505,17 @@ def main():
     else:
         st.caption("✅ Catalog and Log statuses look consistent.")
 
-    tabs = st.tabs(["📖 Borrow", "📦 Return", "➕ Add", "🗑️ Delete", "📘 Catalog", "📜 Logs", "📈 Analytics"])
+    # ---- FIX: include the new "Borrowed now" tab so indexes match the blocks below
+    tabs = st.tabs([
+        "📖 Borrow",
+        "📦 Return",
+        "📋 Borrowed now",  # NEW tab label at index 2
+        "➕ Add",
+        "🗑️ Delete",
+        "📘 Catalog",
+        "📜 Logs",
+        "📈 Analytics"
+    ])
 
     # ---------------------- Borrow ----------------------
     with tabs[0]:
@@ -556,7 +565,7 @@ def main():
         sel_student_dropdown = st.selectbox(
             "👩‍🎓 Pick Student (optional if you scanned)",
             [""] + sorted(student_names),
-            index=0 if not selected_student else 0,  # we'll prefer scanned
+            index=0 if not selected_student else 0,
         )
 
         if include_borrowed:
@@ -638,15 +647,7 @@ def main():
                 st.info("No books currently borrowed.")
             else:
                 open_logs_view["Label"] = open_logs_view["Student"] + " - " + open_logs_view["Book Title"]
-                default_idx = 0
-                if idx_by_barcode is not None:
-                    # If scanner found one, preselect it
-                    label_series = (open_logs_view["Student"] + " - " + open_logs_view["Book Title"]).reset_index(drop=True)
-                    try:
-                        default_idx = label_series.index[label_series.index == open_logs_view.index.get_loc(idx_by_barcode)][0]
-                    except Exception:
-                        default_idx = 0
-                selected_return = st.selectbox("Choose to Return", open_logs_view["Label"], index=default_idx)
+                selected_return = st.selectbox("Choose to Return", open_logs_view["Label"])
                 if st.button("📦 Mark as Returned"):
                     row = open_logs_view[open_logs_view["Label"] == selected_return].iloc[0]
                     idx = logs[
@@ -667,111 +668,112 @@ def main():
 
     # ---------------------- Borrowed now (open borrows) ----------------------
     with tabs[2]:
-    st.subheader("📋 Borrowed now (not returned)")
+        # FIX: everything below is now indented under the 'with' block
+        st.subheader("📋 Borrowed now (not returned)")
 
-    # Always reload to reflect the latest state
-    logs_live = load_logs()
-    books_live = load_books()
+        # Always reload to reflect the latest state
+        logs_live = load_logs()
+        books_live = load_books()
 
-    if logs_live.empty or "Returned" not in logs_live.columns:
-        st.info("No borrow records yet.")
-    else:
-        open_df = logs_live[logs_live["Returned"].str.lower() == "no"].copy()
-
-        if open_df.empty:
-            st.success("✅ No books currently out.")
+        if logs_live.empty or "Returned" not in logs_live.columns:
+            st.info("No borrow records yet.")
         else:
-            # nice ordering
-            show_cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date"]
-            for c in show_cols:
-                if c not in open_df.columns:
-                    open_df[c] = ""
+            open_df = logs_live[logs_live["Returned"].str.lower() == "no"].copy()
 
-            # quick filters
-            c1, c2, c3 = st.columns([2, 2, 1])
-            with c1:
-                sel_student = st.selectbox(
-                    "Filter by student (optional)",
-                    ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
-                    index=0
+            if open_df.empty:
+                st.success("✅ No books currently out.")
+            else:
+                # nice ordering
+                show_cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date"]
+                for c in show_cols:
+                    if c not in open_df.columns:
+                        open_df[c] = ""
+
+                # quick filters
+                c1, c2, c3 = st.columns([2, 2, 1])
+                with c1:
+                    sel_student = st.selectbox(
+                        "Filter by student (optional)",
+                        ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
+                        index=0
+                    )
+                with c2:
+                    sel_book = st.selectbox(
+                        "Filter by book (optional)",
+                        ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
+                        index=0
+                    )
+                with c3:
+                    st.write("")  # spacing
+                    st.write("")
+
+                filt = open_df.copy()
+                if sel_student != "(All)":
+                    filt = filt[filt["Student"].astype(str).str.strip() == sel_student]
+                if sel_book != "(All)":
+                    filt = filt[filt["Book Title"].astype(str).str.strip() == sel_book]
+
+                # highlight overdue
+                now = datetime.now()
+                filt["Due Date"] = pd.to_datetime(filt["Due Date"], errors="coerce")
+                def _style(row):
+                    if pd.notna(row["Due Date"]) and row["Due Date"] < now:
+                        return ['background-color:#ffefef'] * len(row)
+                    return [''] * len(row)
+
+                st.dataframe(
+                    filt[show_cols].style.apply(_style, axis=1),
+                    use_container_width=True
                 )
-            with c2:
-                sel_book = st.selectbox(
-                    "Filter by book (optional)",
-                    ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
-                    index=0
+
+                # download
+                st.download_button(
+                    "⬇️ Download current borrowers (CSV)",
+                    filt[show_cols].to_csv(index=False),
+                    file_name="borrowed_now.csv",
+                    mime="text/csv"
                 )
-            with c3:
-                st.write("")  # spacing
-                st.write("")
 
-            filt = open_df.copy()
-            if sel_student != "(All)":
-                filt = filt[filt["Student"].astype(str).str.strip() == sel_student]
-            if sel_book != "(All)":
-                filt = filt[filt["Book Title"].astype(str).str.strip() == sel_book]
+                st.markdown("---")
 
-            # highlight overdue
-            now = datetime.now()
-            filt["Due Date"] = pd.to_datetime(filt["Due Date"], errors="coerce")
-            def _style(row):
-                if pd.notna(row["Due Date"]) and row["Due Date"] < now:
-                    return ['background-color:#ffefef'] * len(row)
-                return [''] * len(row)
-
-            st.dataframe(
-                filt[show_cols].style.apply(_style, axis=1),
-                use_container_width=True
-            )
-
-            # download
-            st.download_button(
-                "⬇️ Download current borrowers (CSV)",
-                filt[show_cols].to_csv(index=False),
-                file_name="borrowed_now.csv",
-                mime="text/csv"
-            )
-
-            st.markdown("---")
-
-            # optional: mark selected row(s) as returned
-            st.caption("Quick action")
-            if not filt.empty:
-                # Build a label to uniquely identify a row
-                filt = filt.assign(
-                    _label=filt["Student"].astype(str) + " | " +
-                           filt["Book Title"].astype(str) + " | " +
-                           filt["Date Borrowed"].astype(str)
-                )
-                to_mark = st.multiselect(
-                    "Select entries to mark as returned",
-                    options=filt["_label"].tolist()
-                )
-                if st.button("✅ Mark selected as returned"):
-                    if to_mark:
-                        logs_edit = logs_live.copy()
-                        for lab in to_mark:
-                            r = filt[filt["_label"] == lab].iloc[0]
-                            mask = (
-                                (logs_edit["Student"] == r["Student"]) &
-                                (logs_edit["Book Title"] == r["Book Title"]) &
-                                (logs_edit["Date Borrowed"] == r["Date Borrowed"].strftime("%Y-%m-%d %H:%M:%S")
-                                    if isinstance(r["Date Borrowed"], pd.Timestamp)
-                                    else str(r["Date Borrowed"]))
-                            )
-                            logs_edit.loc[mask, "Returned"] = "Yes"
-                            # set catalog back to Available
-                            if "Status" in books_live.columns:
-                                books_live.loc[
-                                    books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
-                                    "Status"
-                                ] = "Available"
-                        save_logs(logs_edit)
-                        save_books(books_live)
-                        st.success(f"Marked {len(to_mark)} entr{'y' if len(to_mark)==1 else 'ies'} as returned.")
-                        st.rerun()
-                    else:
-                        st.info("Nothing selected.")
+                # optional: mark selected row(s) as returned
+                st.caption("Quick action")
+                if not filt.empty:
+                    # Build a label to uniquely identify a row
+                    filt = filt.assign(
+                        _label=filt["Student"].astype(str) + " | " +
+                               filt["Book Title"].astype(str) + " | " +
+                               filt["Date Borrowed"].astype(str)
+                    )
+                    to_mark = st.multiselect(
+                        "Select entries to mark as returned",
+                        options=filt["_label"].tolist()
+                    )
+                    if st.button("✅ Mark selected as returned"):
+                        if to_mark:
+                            logs_edit = logs_live.copy()
+                            for lab in to_mark:
+                                r = filt[filt["_label"] == lab].iloc[0]
+                                mask = (
+                                    (logs_edit["Student"] == r["Student"]) &
+                                    (logs_edit["Book Title"] == r["Book Title"]) &
+                                    (logs_edit["Date Borrowed"] == r["Date Borrowed"].strftime("%Y-%m-%d %H:%M:%S")
+                                        if isinstance(r["Date Borrowed"], pd.Timestamp)
+                                        else str(r["Date Borrowed"]))
+                                )
+                                logs_edit.loc[mask, "Returned"] = "Yes"
+                                # set catalog back to Available
+                                if "Status" in books_live.columns:
+                                    books_live.loc[
+                                        books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
+                                        "Status"
+                                    ] = "Available"
+                            save_logs(logs_edit)
+                            save_books(books_live)
+                            st.success(f"Marked {len(to_mark)} entr{'y' if len(to_mark)==1 else 'ies'} as returned.")
+                            st.rerun()
+                        else:
+                            st.info("Nothing selected.")
 
     # ---------------------- Add ----------------------
     with tabs[3]:
@@ -1134,4 +1136,3 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
-
