@@ -19,17 +19,6 @@ os.makedirs(DATA_DIR, exist_ok=True)
 STUDENT_CSV = os.path.join(DATA_DIR, "Student_records.csv")
 BOOKS_CSV   = os.path.join(DATA_DIR, "Library_books.csv")
 LOG_CSV     = os.path.join(DATA_DIR, "Borrow_log.csv")
-
-# === READ-ONLY MODE ==================================
-# Toggle demo protection here. Recommended: keep True for shared demo.
-# You can also control it from Streamlit Secrets:
-#   [general]
-#   READ_ONLY = true
-READ_ONLY = bool(st.secrets.get("READ_ONLY", True))
-BTN_DISABLED = READ_ONLY
-# ======================================================
-
-# ======================================================
 # Auth (simple)
 # ======================================================
 def hash_password(p):
@@ -1186,3 +1175,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
