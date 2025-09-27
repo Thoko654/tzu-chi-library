@@ -110,6 +110,7 @@ def _gh_put_file(repo, branch, path, content_bytes, message):
         payload["sha"] = sha
     r = requests.put(url, headers=_gh_headers(), json=payload, timeout=30)
     if r.status_code not in (200, 201):
+        # bubble up message for our wrapper to catch
         try:
             body = r.json()
             msg = body.get("message", "")
@@ -352,6 +353,15 @@ def load_logs():
 
     return df
 
+def _safe_save_to_github(local_path, repo_name):
+    """Try to push to GitHub if enabled; never crash the app."""
+    if not _gh_enabled():
+        return
+    try:
+        _gh_put_csv(local_path, repo_name, f"Update {repo_name} via Streamlit app")
+    except Exception as e:
+        st.warning(f"⚠️ Could not push `{repo_name}` to GitHub: {e}")
+
 def save_logs(df):
     cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Barcode"]
     out = df.copy()
@@ -360,18 +370,17 @@ def save_logs(df):
             out[c] = ""
     out = out[cols]
     out.to_csv(LOG_CSV, index=False, encoding="utf-8")
-    if _gh_enabled():
-        _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
+    _safe_save_to_github(LOG_CSV, "Borrow_log.csv")
 
 def save_students(df):
-    df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
-    if _gh_enabled():
-        _gh_put_csv(STUDENT_CSV, "Student_records.csv", "Update Student_records.csv via Streamlit app")
+    out = df.drop(columns=["_CODE_CANON"], errors="ignore").copy()
+    out.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
+    _safe_save_to_github(STUDENT_CSV, "Student_records.csv")
 
 def save_books(df):
-    df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
-    if _gh_enabled():
-        _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
+    out = df.drop(columns=["_BARCODE_CANON"], errors="ignore").copy()
+    out.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
+    _safe_save_to_github(BOOKS_CSV, "Library_books.csv")
 
 # ======================================================
 # Catalog↔Log sync helper
@@ -505,11 +514,11 @@ def main():
     else:
         st.caption("✅ Catalog and Log statuses look consistent.")
 
-    # ---- FIX: include the new "Borrowed now" tab so indexes match the blocks below
+    # ---- Tabs (includes 'Borrowed now') ----
     tabs = st.tabs([
         "📖 Borrow",
         "📦 Return",
-        "📋 Borrowed now",  # NEW tab label at index 2
+        "📋 Borrowed now",
         "➕ Add",
         "🗑️ Delete",
         "📘 Catalog",
@@ -565,7 +574,7 @@ def main():
         sel_student_dropdown = st.selectbox(
             "👩‍🎓 Pick Student (optional if you scanned)",
             [""] + sorted(student_names),
-            index=0 if not selected_student else 0,
+            index=0
         )
 
         if include_borrowed:
@@ -576,7 +585,7 @@ def main():
         sel_book_dropdown = st.selectbox(
             "📚 Pick Book Title (optional if you scanned)",
             [""] + sorted(book_candidates.unique().tolist()),
-            index=0 if not selected_book else 0,
+            index=0
         )
 
         # Decide final selections (scanner wins, otherwise dropdown)
@@ -668,7 +677,6 @@ def main():
 
     # ---------------------- Borrowed now (open borrows) ----------------------
     with tabs[2]:
-        # FIX: everything below is now indented under the 'with' block
         st.subheader("📋 Borrowed now (not returned)")
 
         # Always reload to reflect the latest state
@@ -739,7 +747,6 @@ def main():
                 # optional: mark selected row(s) as returned
                 st.caption("Quick action")
                 if not filt.empty:
-                    # Build a label to uniquely identify a row
                     filt = filt.assign(
                         _label=filt["Student"].astype(str) + " | " +
                                filt["Book Title"].astype(str) + " | " +
@@ -762,7 +769,6 @@ def main():
                                         else str(r["Date Borrowed"]))
                                 )
                                 logs_edit.loc[mask, "Returned"] = "Yes"
-                                # set catalog back to Available
                                 if "Status" in books_live.columns:
                                     books_live.loc[
                                         books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
@@ -786,13 +792,13 @@ def main():
             surname = st.text_input("Surname")
             gender = st.selectbox("Gender", ["Boy", "Girl"])
             if st.button("Add Student"):
-                students = df_append(load_students(), {
+                students_now = df_append(load_students(), {
                     "Code": (code or "").strip(),
                     "Name": (name or "").strip(),
                     "Surname": (surname or "").strip(),
                     "Gender": gender
                 })
-                save_students(students.drop(columns=["_CODE_CANON"], errors="ignore"))
+                save_students(students_now)
                 st.success("Student added.")
         else:
             title = st.text_input("Book Title")
@@ -812,8 +818,7 @@ def main():
                         "Barcode": (barcode or "").strip(),
                         "_BARCODE_CANON": _canon(barcode),
                     })
-                    # persist without helper columns
-                    save_books(books_now.drop(columns=["_BARCODE_CANON"], errors="ignore"))
+                    save_books(books_now)  # save_books will drop helper col
                     st.success("Book added.")
 
     # ---------------------- Delete ----------------------
@@ -835,7 +840,7 @@ def main():
                     surname_part = parts[-1] if len(parts) > 1 else ""
                     mask = (students_now["Name"] == name_part) & (students_now["Surname"] == surname_part)
                     students_now = students_now[~mask]
-                    save_students(students_now.drop(columns=["_CODE_CANON"], errors="ignore"))
+                    save_students(students_now)
                     st.success("Student deleted.")
         else:
             books_now = load_books()
@@ -843,7 +848,7 @@ def main():
             to_delete = st.selectbox("Select book to delete", titles)
             if st.button("Delete Book"):
                 books_now = books_now[books_now["Book Title"] != to_delete]
-                save_books(books_now.drop(columns=["_BARCODE_CANON"], errors="ignore"))
+                save_books(books_now)
                 st.success("Book deleted.")
 
     # ---------------------- Catalog (View / Edit Books) ----------------------
@@ -928,7 +933,7 @@ def main():
                     {"available": "Available", "borrowed": "Borrowed", "out": "Borrowed", "issued": "Borrowed"}
                 ).fillna("Available")
 
-                save_books(updated.drop(columns=["_BARCODE_CANON"], errors="ignore"))
+                save_books(updated)
                 st.success("Catalog saved.")
                 st.rerun()
 
