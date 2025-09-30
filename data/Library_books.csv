@@ -1,225 +1,225 @@
-#,Book ID,Book Title,Author / Publisher,Barcode,Language,Condition,Status,Author,_BARCODE_CANON
-1,TCTC001,Scarlet and Ivy. The Dance in the Dark,Sophie Cleverly,9780007589227.0,English,Good,Available,Sophie Cleverly,97800075892270
-2,TCTC002,Scarlet and Ivy. The Last Secret,Sophie Cleverly,9780008218232.0,English,Good,Available,Sophie Cleverly,97800082182320
-3,TCTC003,Scarlet and Ivy. The Lights Under the Lake,Sophie Cleverly,9780008218331.0,English,Good,Available,Sophie Cleverly,97800082183310
-4,TCTC004,Scarlet and Ivy. The Whispers in the Walls,Sophie Cleverly,9780007589203.0,English,Good,Available,Sophie Cleverly,97800075892030
-5,TCTC005,Scarlet and Ivy. The Curse in the Candlelight,Sophie Cleverly,9780008218317.0,English,Good,Available,Sophie Cleverly,97800082183170
-7,TCTC006,Diary of a Wimpy Kid. Cabin Fever,Jeff Kinney,9780141343006.0,English,Good,Borrowed,,97801413430060
-8,TCTC007,Diary of a Wimpy Kid. Rodrick Rules,Jeff Kinney,9780141324913.0,English,Good,Available,,97801413249130
-9,TCTC008,Diary of a Wimpy Kid. The Ugly Truth,Jeff Kinney,9780141340821.0,English,Good,Available,,97801413408210
-10,TCTC009,Diary of a Wimpy Kid. The Meltdown,Jeff Kinney,9780141378206.0,English,Good,Available,,97801413782060
-11,TCTC010,The Whole Sky,Heather Henson,,English,Good,Available,,
-12,TCTC011,The 91-Storey Treehouse,Andy Griffiths,9781509839162.0,English,Good,Available,,97815098391620
-13,TCTC012,1984,George Orwell,9780141036144.0,English,Good,Available,,97801410361440
-14,TCTC013,I Know Why the Caged Bird Sings,Maya Angelou,9781844088188.0,English,Good,Available,,97818440881880
-15,TCTC014,The Fault in our Stars,John Green,9780141345659.0,English,Good,Available,,97801413456590
-16,TCTC015,Harry Potter and the Philosophers Stone,J K Rowling,9780747532743.0,English,Good,Available,,97807475327430
-17,TCTC016,Middle School. Save Rafe,James Patterson,9780099596431.0,English,Good,Available,,97800995964310
-18,TCTC017,The Magic Snowbird,Enid Blyton,9780753729397.0,English,Good,Available,,97807537293970
-19,TCTC018,The Fishing Wand,Enid Blyton,9780753729465.0,English,Good,Borrowed,,97807537294650
-20,TCTC019,Fairy Bears. Dizzy,Julie Sykes,9780330512015.0,English,Good,Available,,97803305120150
-21,TCTC020,Fairy Bears. Misty,Julie Sykes,9780330512060.0,English,Good,Available,,97803305120600
-22,TCTC021,Fairy Bears. Sunny,Julie Sykes,9780330512022.0,English,Good,Available,,97803305120220
-23,TCTC022,The Fairy and the Missing Wand,A Sparkly Board Book,9781842398722.0,English,Good,Available,,97818423987220
-24,TCTC023,The Princess and the Popstar,Barbie,9781743009093.0,English,Good,Available,,97817430090930
-25,TCTC024,The Little Mermaid,Disney,9781445409672.0,English,Good,Available,,97814454096720
-26,TCTC025,The Monster Kids Book,Peter Coupe,9781900032544.0,English,Fair,Available,,97819000325440
-27,TCTC026,Funniest Storybook Ever,Richard Scarry,9780007935222.0,English,New,Available,,97800079352220
-28,TCTC027,Best First Storybook Ever,Richard Scarry,9780007935277.0,English,New,Available,,97800079352770
-29,TCTC028,Great Big Schoolhouse,Richard Scarry,9780007935260.0,English,Good,Available,,97800079352600
-30,TCTC029,Cars and Trucks and Things That Go,Richard Scarry,9780007935192.0,English,New,Available,,97800079351920
-31,TCTC030,What Do People Do All Day,Richard Scarry,9780007935185.0,English,New,Available,,97800079351850
-32,TCTC031,Best Word Book Ever,Richard Scarry,9780007935284.0,English,New,Available,,97800079352840
-33,TCTC032,Planes and Rockets and Things That Fly,Richard Scarry,9780007935246.0,English,New,Available,,97800079352460
-34,TCTC033,Great Big Mystery Book,Richard Scarry,9780007935253.0,English,New,Available,,97800079352530
-35,TCTC034,Best Counting Book Ever,Richard Scarry,9780007935291.0,English,New,Available,,97800079352910
-36,TCTC035,Busiest People Ever,Richard Scarry,9780007936694.0,English,New,Available,,97800079366940
-37,TCTC036,The Cartoon Classics Collection,Cartoon Network,,English,Fair,Available,,
-38,TCTC037,Bedtime Tales,The Childrens Illustrated Treasury,9781742819686.0,English,Fair,Available,,97817428196860
-39,TCTC038,My Treasury of Princess Tales,Hinkler,9781743080009.0,English,Fair,Available,,97817430800090
-40,TCTC039,The Cartoon Classics Collection. Volume One,Hanna Barbera,,English,Fair,Available,,
-41,TCTC040,Eyewonder Earth,Dorling Kindersley,9781405361316.0,English,Good,Available,,97814053613160
-42,TCTC041,The Human Body,Brown Watson,6001811985627.0,English,Fair,Borrowed,,60018119856270
-43,TCTC042,Awful Auntie,David Walliams,9780007453627.0,English,Good,Available,,97800074536270
-44,TCTC043,St Clare's Collection 1,Enid Blyton,9781444934823.0,English,Good,Available,,97814449348230
-45,TCTC044,The Pesky Polar Bear - Zoe's Rescue Zoo,Amelia Cobb,9780857634405.0,English,Good,Available,,97808576344050
-46,TCTC045,The Lucky Snow Leopard - Zoe's Rescue Zoo,Amelia Cobb,9780857633774.0,English,Good,Available,,97808576337740
-47,TCTC046,The Wild Wolf Pup - Zoe's Rescue Zoo,Amelia Cobb,9780857635181.0,English,Good,Available,,97808576351810
-48,TCTC047,Weird But True - Fact A Day Fun Journal,National Geographic Kids,9781426317279.0,English,Good,Available,,97814263172790
-49,TCTC048,The Girls Body Book,Kelli Dunham,9781604337143.0,English,Good,Borrowed,,97816043371430
-50,TCTC049,Stealing Popular,Trudi Truet,9781442441545.0,English,Fair,Available,,97814424415450
-51,TCTC050,Lady Audley's Secret,Marry Elizabeth Bradden,9780141192338.0,English,Good,Available,,97801411923380
-52,TCTC051,Memory Keeper's Daughter,Kim Edwards,9780143038139.0,English,Fair,Available,,97801430381390
-53,TCTC052,The Undomestic Goddess,Sophie Kinsella,9780440242383.0,English,Good,Available,,97804402423830
-54,TCTC053,Diary Of A Wimpy Kid,Jeff Kinney,,English,Fair,Borrowed,,
-55,TCTC054,Diary Of A Wimpy Kid.The Ugly Thruth,Jeff Kinney,9780141340821.0,English,Fair,Available,,97801413408210
-56,TCTC055,The Girl Who Stole An Elephant,,9781788006347,,,Available,Nizrana Farook,9781788006347
-57,TCTC056,The Girl Who Stole An Elephant,,9781788006347,,,Available,Nizrana Farook,9781788006347
-58,TCTC057,The Boy At The Back Of The Class,,9781510105010,,,Available,Onjali Q Rauf,9781510105010
-59,TCTC058,The Boy At The Back Of The Class,,9781510105010,,,Available,Onjali Q Rauf,9781510105010
-60,TCTC059,Uniquely You,,9781546012498,,,Borrowed,Joyce Meyer,9781546012498
-61,TCTC060,Uniquely You,,9781546012498,,,Available,Joyce Meyer,9781546012498
-62,TCTC061,The Koala Who Could,,9781408351482,,,Available,"Rachel Bright, Jim Field",9781408351482
-63,TCTC062,The Koala Who Could,,9781408351482,,,Available,"Rachel Bright, Jim Field",9781408351482
-64,TCTC063,The Lost Whale,,9780008412968,,,Borrowed,Hannah Gold,9780008412968
-65,TCTC064,The Lost Whale,,9780008412968,,,Borrowed,Hannah Gold,9780008412968
-66,TCTC065,I am Shudu,,9781431433834,,,Available,Shudufhadzo Musida,9781431433834
-67,TCTC066,I am Shudu,,9781431433834,,,Available,Shudufhadzo Musida,9781431433834
-68,TCTC067,Journey To Joburg,,9780007263509,,,Available,Beverly Naidoo,9780007263509
-69,TCTC068,Journey To Joburg,,9780007263509,,,Available,Beverly Naidoo,9780007263509
-70,TCTC069,Wonder,,9780552565974,,,Available,R J Palacio,9780552565974
-71,TCTC070,Wonder,,9780552565974,,,Available,R J Palacio,9780552565974
-72,TCTC071,I Am Human,,9781419746734,,,Available,Verde/Reynolds,9781419746734
-73,TCTC072,I Am Human,,9781419746734,,,Available,Verde/Reynolds,9781419746734
-74,TCTC073,Thank You Omu,,9780316431248,,,Available,Oge Mora,9780316431248
-75,TCTC074,Thank You Omu,,9780316431248,,,Available,Oge Mora,9780316431248
-76,TCTC075,My Mouth Is A Volcano,,9781931636858,,,Available,Julia Cook,9781931636858
-77,TCTC076,My Mouth Is A Volcano,,9781931636858,,,Available,Julia Cook,9781931636858
-78,TCTC077,The Mindful Little Explorer: Adventure In Feelings,,9788870209197,,,Available,Max Storywel,9788870209197
-79,TCTC078,The Mindful Little Explorer: Adventure In Feelings,,9788870209197,,,Available,Max Storywel,9788870209197
-80,TCTC079,Wangari's Trees Of Peace,,9781328869210,,,Available,Jeanette Winter,9781328869210
-81,TCTC080,Wangari's Trees Of Peace,,9781328869210,,,Available,Jeanette Winter,9781328869210
-82,TCTC081,We Are One,,9781776250417,,,Available,Refiloe Moahloli,9781776250417
-83,TCTC082,We Are One,,9781776250417,,,Available,Refiloe Moahloli,9781776250417
-84,TCTC083,Have You Filled A Bucket Today?,,9780996099936,,,Available,Carol McCloud,9780996099936
-85,TCTC084,Have You Filled A Bucket Today?,,9780996099936,,,Available,Carol McCloud,9780996099936
-86,TCTC085,The Lion Inside,,9781408331606,,,Available,Rachel Bright,9781408331606
-87,TCTC086,The Lion Inside,,9781408331606,,,Available,Rachel Bright,9781408331606
-88,TCTC087,The Whale Who Wanted More,,9781408349229,,,Available,Rachel Bright,9781408349229
-89,TCTC088,The Whale Who Wanted More,,9781408349229,,,Available,Rachel Bright,9781408349229
-90,TCTC089,The Heart And The Bottle,,9780007182343,,,Available,Oliver Jeffers,9780007182343
-91,TCTC090,The Heart And The Bottle,,9780007182343,,,Available,Oliver Jeffers,9780007182343
-92,TCTC091,Those Shoes,,9780763642846,,,Available,Maribeth Boelts,9780763642846
-93,TCTC092,Those Shoes,,9780763642846,,,Available,Maribeth Boelts,9780763642846
-94,TCTC093,Zamo The Rabit,,9780152010102,,,Available,Gerald McDermott,9780152010102
-95,TCTC094,Zamo The Rabit,,9780152010102,,,Available,Gerald McDermott,9780152010102
-96,TCTC095,The Oak Tree,,9780702324352,,,Available,Julia Donaldson,9780702324352
-97,TCTC096,The Oak Tree,,9780702324352,,,Available,Julia Donaldson,9780702324352
-98,TCTC097,Finn's Little Fibs,,9781526642479,,,Available,Tom Percival,9781526642479
-99,TCTC098,Finn's Little Fibs,,9781526642479,,,Available,Tom Percival,9781526642479
-,TCTC099,My Sister The Vimpire  Fangtastic,,97811405240564,,,Available,Sienna Mercer,97811405240564
-,TCTC100,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971
-,TCTC101,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971
-,TCTC102,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971
-,TCTC103,My Sister The Vampire,,9781405256971,,,Available,Sienna Mercer,9781405256971
-,TCTC104,My Sister The Vampire 3 Revamped,,9781405243711,,,Available,Sienna Mercer,9781405243711
-,TCTC105,My Sister The Vampire 4 Vampalicious,,9781405243728,,,Available,Sienna Mercer,9781405243728
-,TCTC106,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971
-,TCTC107,My Weird But True,,9781426317279,,,Available,National Geographic Kids,9781426317279
-,TCTC108,David Gets In Trouble,,9780439050227,,,Available,David Shannon,9780439050227
-,TCTC109,David Gets In Trouble,,9780439050227,,,Available,David Shannon,9780439050227
-,TCTC110,Part Of The Teaam,,9781776251599,,,Available,Rifiloe Moahloli,9781776251599
-,TCTC111,Part Of The Teaam,,9781776251599,,,Available,Rifiloe Moahloli,9781776251599
-,TCTC112,Our Beautiful Colors,,9780593434970,,,Available,Nikki Shannon Smith,9780593434970
-,TCTC113,Our Beautiful Colors,,9780593434970,,,Available,Nikki Shannon Smith,9780593434970
-,TCTC114,Giraffers Can't Dance,,9781841215655,,,Available,"Giles Andreae, Guy  Parker Rees",9781841215655
-,TCTC115,Giraffers Can't Dance,,9781841215655,,,Available,"Giles Andreae, Guy  Parker Rees",9781841215655
-,TCTC116,Africa Amazing Africa,,9781406376586,,,Available,Atinuke,9781406376586
-,TCTC117,Africa Amazing Africa,,9781406376586,,,Available,Atinuke,9781406376586
-,TCTC118,Zoya and Naru,,9781431434190,,,Available,Caroline Montague,9781431434190
-,TCTC119,Zoya And Naru,,9781431434190,,,Available,Caroline Montague,9781431434190
-,TCTC120,What A Waste,,9780241366912,,,Available,Jess French,9780241366912
-,TCTC121,What A Waste,,9780241366912,,,Available,Jess French,9780241366912
-,TCTC122,Last Stop On Market Street,,9780399257742,,,Available,Matt De La Pena,9780399257742
-,TCTC123,Last Stop On Market Street,,9780399257742,,,Available,Matt De La Pena,9780399257742
-,TCTC124,Why Not You,,9780593900093,,,Available,Ciara and Russel Wilson,9780593900093
-,TCTC125,Why Not You,,9780593900093,,,Available,Ciara and Russel Wilson,9780593900093
-,TCTC126,The Giving Tree,,9780060256654,,,Available,Shel SilverStein,9780060256654
-,TCTC127,The Giving Tree,,9780060256654,,,Available,Shel SilverStein,9780060256654
-,TCTC128,Skin Love,,9783985730049,,,Available,Jettina Lantelme,9783985730049
-,TCTC129,Skin Love,,Jettina Lantelme,,,Available,Jettina Lantelme,JETTINALANTELME
-,TCTC129,Resilience,,9781925089349,,,Available,Jayneen Sanders,9781925089349
-,TCTC130,Resilience,,9781925089349,,,Available,Jayneen Sanders,9781925089349
-,TCTC131,Wanda,,9781431428854,,,Available,Sihle Nontshokweni and Mathabo,9781431428854
-,TCTC132,Wanda,,9781431428854,,,Available,Sihle Nontshokweni and Mathabo,9781431428854
-,TCTC133,The Empty Pot: Demi,,9780805049008,,,Available,Henry Holt and Company,9780805049008
-,TCTC134,The Empty Pot: Demi,,9780805049008,,,Available,Henry Holt and Company,9780805049008
-,TCTC135,Food For Hope,,9781954354241,,,Available,Jeff Gottesfeld,9781954354241
-,TCTC136,Food For Hope,,9781954354241,,,Available,Jeff Gottesfeld,9781954354241
-,TCTC137,Rules On Strike,,9781637316108,,,Available,Jennifer Jones,9781637316108
-,TCTC138,Rules On Strike,,9781637316108,,,Available,Jennifer Jones,9781637316108
-,TCTC139,Cape,,9781250840509,,,Available,Kevin Johnson,9781250840509
-,TCTC140,Cape,,9781250840509,,,Available,Kevin Johnson,9781250840509
-,TCTC141,Remarkable Me,,9781776252879,,,Available,Tshwanelo Serumola,9781776252879
-,TCTC142,Remarkable Me,,9781776252879,,,Available,Tshwanelo Serumola,9781776252879
-,TCTC143,Anansi The Spider: A Tale From The Ashanti,,9780805003116,,,Available,Gerald McDermott,9780805003116
-,TCTC144,Anansi The Spider: A Tale From The Ashanti,,9780805003116,,,Available,Gerald McDermott,9780805003116
-,TCTC145,Fill A Bucket: A guide to Dailly Happiness For Young Children,,9780996099981,,,Available,Carol McCloud and Katherin Martin,9780996099981
-,TCTC146,Fill A Bucket: A guide to Dailly Happiness For Young Children,,9780996099981,,,Available,Carol McCloud and Katherin Martin,9780996099981
-,TCTC147,Did I Ever Tell you How Lucky You Are?,,9780008288136,,,Available,Dr.Suess,9780008288136
-,TCTC148,Did I Ever Tell you How Lucky You Are?,,9780008288136,,,Available,Dr.Suess,9780008288136
-,TCTC149,If All The World Were,,9781786036513,,,Available,Joseph Coelho and Allison Colpys,9781786036513
-,TCTC150,If All The World Were,,9781786036513,,,Available,Joseph Coelho and Allison Colpys,9781786036513
-,TCTC151,A Sick Day For Amos McGee,,9781596434028,,,Available,Philiph C.Stead,9781596434028
-,TCTC152,A Sick Day For Amos McGee,,9781596434028,,,Available,Philiph C.Stead,9781596434028
-,TCTC154,Sulwe,,9780241394335,,,Available,Lupita Nyongo,9780241394335
-,TCTC154,Sulwe,,9780241394335,,,Available,Lupita Nyongo,9780241394335
-,TCTC155,Sylvester And The  Magic Pebble,,9780141374680,,,Available,William Steig,9780141374680
-,TCTC156,Sylvester And The  Magic Pebble,,9780141374680,,,Available,William Steig,9780141374680
-,TCTC157,Mama Panya's Pancakes: A Village Tale From Kenya,,9781905236640,,,Available,Mary And Rich Chamberlin,9781905236640
-,TCTC158,Mama Panya's Pancakes: A Village Tale From Kenya,,9781905236640,,,Available,Mary And Rich Chamberlin,9781905236640
-,TCTC159,Roald Dahl Collection: George's Marvelous Medicine,,9780141371405,,,Available,Roald Dahl,9780141371405
-,TCTC160,Roald Dahl Collection: George's Marvelous Medicine,,9780141371405,,,Available,Roald Dahl,9780141371405
-,TCTC161,Roald Dahl Collection: Danny The Champion Of The World,,9780141371375,,,Available,Roald Dahl,9780141371375
-,TCTC162,Roald Dahl Collection: Danny The Champion Of The World,,9780141371375,,,Available,Roald Dahl,9780141371375
-,TCTC163,Roald Dahl Collection: James And The Giant Peach,,9780141371429,,,Available,Roald Dahl,9780141371429
-,TCTC164,Roald Dahl Collection: James And The Giant Peach,,9780141371429,,,Available,Roald Dahl,9780141371429
-,TCTC165,Roald Dahl Collection: Fantastic  Mr Fox,,9780141371382,,,Available,Roald Dahl,9780141371382
-,TCTC166,Roald Dahl Collection: Fantastic  Mr Fox,,9780141371382,,,Available,Roald Dahl,9780141371382
-,TCTC167,Roald Dahl Collection: Going Solo,,9780141371412,,,Available,Roald Dahl,9780141371412
-,TCTC168,Roald Dahl Collection: Boy,,9780141371344,,,Available,Roald Dahl,9780141371344
-,TCTC169,Roald Dahl Collection: Boy,,9780141371344,,,Available,Roald Dahl,9780141371344
-,TCTC170,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450
-,TCTC171,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450
-,TCTC173,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450
-,TCTC174,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450
-,TCTC175,Roald Dahl Collection: Charlie And The Great Glass Elevator,,9780141371368,,,Available,Roald Dahl,9780141371368
-,TCTC176,Roald Dahl Collection: Charlie And The Great Glass Elevator,,9780141371368,,,Available,Roald Dahl,9780141371368
-,TCTC177,Roald Dahl Collection: Matilda,,9780141371436,,,Available,Roald Dahl,9780141371436
-,TCTC178,Roald Dahl Collection: Matilda,,9780141371436,,,Available,Roald Dahl,9780141371436
-,TCTC179,Roald Dahl Collection: The Twits,,9780141371474,,,Available,Roald Dahl,9780141371474
-,TCTC180,Roald Dahl Collection: The Twits,,9780141371474,,,Available,Roald Dahl,9780141371474
-,TCTC181,Roald Dahl Collection: Billy And The Minpins,,9780141377284,,,Available,Roald Dahl,9780141377284
-,TCTC182,Roald Dahl Collection: Billy And The Minpins,,9780141377284,,,Available,Roald Dahl,9780141377284
-,TCTC183,Dr Suess Makes Read Fun: ABC,,9780008203917,,,Available,Dr Suess,9780008203917
-,TCTC184,Dr Suess Makes Read Fun: ABC,,9780008203917,,,Available,Dr Suess,9780008203917
-,TCTC185,Dr Suess Makes Read Fun: Daisy Head Mayzie,,9780008288143,,,Available,Dr Suess,9780008288143
-,TCTC186,Dr Suess Makes Read Fun: Daisy Head Mayzie,,9780008288143,,,Available,Dr Suess,9780008288143
-,TCTC187,Dr Suess Makes Read Fun: Sleep Book,,9780008240059,,,Available,Dr Suess,9780008240059
-,TCTC188,Dr Suess Makes Read Fun: Sleep Book,,9780008240059,,,Available,Dr Suess,9780008240059
-,TCTC189,Dr Suess Makes Read Fun: If I Ran The Circus,,9780008272005,,,Available,Dr Suess,9780008272005
-,TCTC190,Dr Suess Makes Read Fun: If I Ran The Circus,,9780008272005,,,Available,Dr Suess,9780008272005
-,TCTC191,Dr Suess Makes Read Fun: Horton Hears A Who!,,9780008240028,,,Available,Dr Suess,9780008240028
-,TCTC192,Dr Suess Makes Read Fun: Horton Hears A Who!,,9780008240028,,,Available,Dr Suess,9780008240028
-,TCTC193,Dr Suess Makes Read Fun: How The Grinch Stole Christmas,,9780008201524,,,Available,Dr Suess,9780008201524
-,TCTC194,Dr Suess Makes Read Fun: How The Grinch Stole Christmas,,9780008201524,,,Available,Dr Suess,9780008201524
-,TCTC195,Dr Suess Makes Read Fun: The Lorax,,9780008203924,,,Available,Dr Suess,9780008203924
-,TCTC196,Dr Suess Makes Read Fun: The Lorax,,9780008203924,,,Available,Dr Suess,9780008203924
-,TCTC197,Dr Suess Makes Read Fun: Oh The Places You'll Go!,,9780008201487,,,Available,Dr Suess,9780008201487
-,TCTC198,Dr Suess Makes Read Fun: Oh The Places You'll Go!,,9780008201487,,,Available,Dr Suess,9780008201487
-,TCTC199,Dr Suess Makes Read Fun: OMarvin K.Money Will You Please Go Now!,,9780008288105,,,Available,Dr Suess,9780008288105
-,TCTC200,Dr Suess Makes Read Fun: OMarvin K.Money Will You Please Go Now!,,9780008288105,,,Available,Dr Suess,9780008288105
-,TCTC201,Dr Suess Makes Read Fun: I can Read With My Eyes Shut!,,9780008240011,,,Available,Dr Suess,9780008240011
-,TCTC202,Dr Suess Makes Read Fun: I can Read With My Eyes Shut!,,9780008240011,,,Available,Dr Suess,9780008240011
-,TCTC201,Dr Suess Makes Read Fun: The Cat In The Hat Comes Back,,9780008203894,,,Available,Dr Suess,9780008203894
-,TCTC202,Dr Suess Makes Read Fun: The Cat In The Hat Comes Back,,9780008203894,,,Available,Dr Suess,9780008203894
-,TCTC203,Dr Suess Makes Read Fun: Fox In Socks,,9780008201500,,,Available,Dr Suess,9780008201500
-,TCTC204,Dr Suess Makes Read Fun: Fox In Socks,,9780008201500,,,Available,Dr Suess,9780008201500
-,TCTC205,Dr Suess Makes Read Fun: Green Eggs And Ham,,9780008201470,,,Available,Dr Suess,9780008201470
-,TCTC206,Dr Suess Makes Read Fun: Green Eggs And Ham,,9780008201470,,,Available,Dr Suess,9780008201470
-,TCTC207,Dr Suess Makes Read Fun: The Cat In The Hat,,9780008201517,,,Available,Dr Suess,9780008201517
-,TCTC208,Dr Suess Makes Read Fun: The Cat In The Hat,,9780008201517,,,Available,Dr Suess,9780008201517
-,TCTC209,Dr Suess Makes Read Fun: The Shape Of Me And Other Stuff,,9780007340958,,,Available,Dr Suess,9780007340958
-,TCTC210,Dr Suess Makes Read Fun: The Shape Of Me And Other Stuff,,9780007340958,,,Available,Dr Suess,9780007340958
-,TCTC211,Dr Suess Makes Read Fun: Mr Brown Can Moo! Can You?,,9780008240004,,,Available,Dr Suess,9780008240004
-,TCTC212,Dr Suess Makes Read Fun: Mr Brown Can Moo! Can You?,,9780008240004,,,Available,Dr Suess,9780008240004
-,TCTC213,Dr Suess Makes Read Fun: There's A Wocket In My Pocket!,,9780008239985,,,Available,Dr Suess,9780008239985
-,TCTC214,Dr Suess Makes Read Fun: There's A Wocket In My Pocket!,,9780008239985,,,Available,Dr Suess,9780008239985
-,TCTC215,Dr Suess Makes Read Fun: The Foot Book,,9780008271916,,,Available,Dr Suess,9780008271916
-,TCTC216,Dr Suess Makes Read Fun: The Foot Book,,9780008271916,,,Available,Dr Suess,9780008271916
-,TCTC217,Dr Suess Makes Read Fun: Hop On Pop,,9780008203900,,,Available,Dr Suess,9780008203900
-,TCTC218,Dr Suess Makes Read Fun: Hop On Pop,,9780008203900,,,Available,Dr Suess,9780008203900
-,TCTC219,Dr Suess Makes Read Fun: One Fish Two Fish Red Fish Blue Fish,,9780008201494,,,Available,Dr Suess,9780008201494
-,TCTC220,Dr Suess Makes Read Fun: One Fish Two Fish Red Fish Blue Fish,,9780008201494,,,Available,Dr Suess,9780008201494
-,TCTC221,Love To Draw,,9781488902437,,,Available,Hinkler,9781488902437
-,TCTC222,Skin Love,,Jettina Lantelme,,,Available,Jettina Lantelme,JETTINALANTELME
+#,Book ID,Book Title,Author / Publisher,Barcode,Language,Condition,Status,Author,_BARCODE_CANON,_idx
+1,TCTC001,Scarlet and Ivy. The Dance in the Dark,Sophie Cleverly,9780007589227.0,English,Good,Available,Sophie Cleverly,97800075892270,0
+2,TCTC002,Scarlet and Ivy. The Last Secret,Sophie Cleverly,9780008218232.0,English,Good,Available,Sophie Cleverly,97800082182320,1
+3,TCTC003,Scarlet and Ivy. The Lights Under the Lake,Sophie Cleverly,9780008218331.0,English,Good,Available,Sophie Cleverly,97800082183310,2
+4,TCTC004,Scarlet and Ivy. The Whispers in the Walls,Sophie Cleverly,9780007589203.0,English,Good,Available,Sophie Cleverly,97800075892030,3
+5,TCTC005,Scarlet and Ivy. The Curse in the Candlelight,Sophie Cleverly,9780008218317.0,English,Good,Available,Sophie Cleverly,97800082183170,4
+7,TCTC006,Diary of a Wimpy Kid. Cabin Fever,Jeff Kinney,9780141343006.0,English,Good,Borrowed,,97801413430060,5
+8,TCTC007,Diary of a Wimpy Kid. Rodrick Rules,Jeff Kinney,9780141324913.0,English,Good,Available,,97801413249130,6
+9,TCTC008,Diary of a Wimpy Kid. The Ugly Truth,Jeff Kinney,9780141340821.0,English,Good,Available,,97801413408210,7
+10,TCTC009,Diary of a Wimpy Kid. The Meltdown,Jeff Kinney,9780141378206.0,English,Good,Available,,97801413782060,8
+11,TCTC010,The Whole Sky,Heather Henson,,English,Good,Available,,,9
+12,TCTC011,The 91-Storey Treehouse,Andy Griffiths,9781509839162.0,English,Good,Available,,97815098391620,10
+13,TCTC012,1984,George Orwell,9780141036144.0,English,Good,Available,,97801410361440,11
+14,TCTC013,I Know Why the Caged Bird Sings,Maya Angelou,9781844088188.0,English,Good,Available,,97818440881880,12
+15,TCTC014,The Fault in our Stars,John Green,9780141345659.0,English,Good,Available,,97801413456590,13
+16,TCTC015,Harry Potter and the Philosophers Stone,J K Rowling,9780747532743.0,English,Good,Available,,97807475327430,14
+17,TCTC016,Middle School. Save Rafe,James Patterson,9780099596431.0,English,Good,Available,,97800995964310,15
+18,TCTC017,The Magic Snowbird,Enid Blyton,9780753729397.0,English,Good,Available,,97807537293970,16
+19,TCTC018,The Fishing Wand,Enid Blyton,9780753729465.0,English,Good,Borrowed,,97807537294650,17
+20,TCTC019,Fairy Bears. Dizzy,Julie Sykes,9780330512015.0,English,Good,Available,,97803305120150,18
+21,TCTC020,Fairy Bears. Misty,Julie Sykes,9780330512060.0,English,Good,Available,,97803305120600,19
+22,TCTC021,Fairy Bears. Sunny,Julie Sykes,9780330512022.0,English,Good,Available,,97803305120220,20
+23,TCTC022,The Fairy and the Missing Wand,A Sparkly Board Book,9781842398722.0,English,Good,Available,,97818423987220,21
+24,TCTC023,The Princess and the Popstar,Barbie,9781743009093.0,English,Good,Available,,97817430090930,22
+25,TCTC024,The Little Mermaid,Disney,9781445409672.0,English,Good,Available,,97814454096720,23
+26,TCTC025,The Monster Kids Book,Peter Coupe,9781900032544.0,English,Fair,Available,,97819000325440,24
+27,TCTC026,Funniest Storybook Ever,Richard Scarry,9780007935222.0,English,New,Available,,97800079352220,25
+28,TCTC027,Best First Storybook Ever,Richard Scarry,9780007935277.0,English,New,Available,,97800079352770,26
+29,TCTC028,Great Big Schoolhouse,Richard Scarry,9780007935260.0,English,Good,Available,,97800079352600,27
+30,TCTC029,Cars and Trucks and Things That Go,Richard Scarry,9780007935192.0,English,New,Available,,97800079351920,28
+31,TCTC030,What Do People Do All Day,Richard Scarry,9780007935185.0,English,New,Available,,97800079351850,29
+32,TCTC031,Best Word Book Ever,Richard Scarry,9780007935284.0,English,New,Available,,97800079352840,30
+33,TCTC032,Planes and Rockets and Things That Fly,Richard Scarry,9780007935246.0,English,New,Available,,97800079352460,31
+34,TCTC033,Great Big Mystery Book,Richard Scarry,9780007935253.0,English,New,Available,,97800079352530,32
+35,TCTC034,Best Counting Book Ever,Richard Scarry,9780007935291.0,English,New,Available,,97800079352910,33
+36,TCTC035,Busiest People Ever,Richard Scarry,9780007936694.0,English,New,Available,,97800079366940,34
+37,TCTC036,The Cartoon Classics Collection,Cartoon Network,,English,Fair,Available,,,35
+38,TCTC037,Bedtime Tales,The Childrens Illustrated Treasury,9781742819686.0,English,Fair,Available,,97817428196860,36
+39,TCTC038,My Treasury of Princess Tales,Hinkler,9781743080009.0,English,Fair,Available,,97817430800090,37
+40,TCTC039,The Cartoon Classics Collection. Volume One,Hanna Barbera,,English,Fair,Available,,,38
+41,TCTC040,Eyewonder Earth,Dorling Kindersley,9781405361316.0,English,Good,Available,,97814053613160,39
+42,TCTC041,The Human Body,Brown Watson,6001811985627.0,English,Fair,Borrowed,,60018119856270,40
+43,TCTC042,Awful Auntie,David Walliams,9780007453627.0,English,Good,Available,,97800074536270,41
+44,TCTC043,St Clare's Collection 1,Enid Blyton,9781444934823.0,English,Good,Available,,97814449348230,42
+45,TCTC044,The Pesky Polar Bear - Zoe's Rescue Zoo,Amelia Cobb,9780857634405.0,English,Good,Available,,97808576344050,43
+46,TCTC045,The Lucky Snow Leopard - Zoe's Rescue Zoo,Amelia Cobb,9780857633774.0,English,Good,Available,,97808576337740,44
+47,TCTC046,The Wild Wolf Pup - Zoe's Rescue Zoo,Amelia Cobb,9780857635181.0,English,Good,Available,,97808576351810,45
+48,TCTC047,Weird But True - Fact A Day Fun Journal,National Geographic Kids,9781426317279.0,English,Good,Available,,97814263172790,46
+49,TCTC048,The Girls Body Book,Kelli Dunham,9781604337143.0,English,Good,Borrowed,,97816043371430,47
+50,TCTC049,Stealing Popular,Trudi Truet,9781442441545.0,English,Fair,Available,,97814424415450,48
+51,TCTC050,Lady Audley's Secret,Marry Elizabeth Bradden,9780141192338.0,English,Good,Available,,97801411923380,49
+52,TCTC051,Memory Keeper's Daughter,Kim Edwards,9780143038139.0,English,Fair,Available,,97801430381390,50
+53,TCTC052,The Undomestic Goddess,Sophie Kinsella,9780440242383.0,English,Good,Available,,97804402423830,51
+54,TCTC053,Diary Of A Wimpy Kid,Jeff Kinney,,English,Fair,Borrowed,,,52
+55,TCTC054,Diary Of A Wimpy Kid.The Ugly Thruth,Jeff Kinney,9780141340821.0,English,Fair,Available,,97801413408210,53
+56,TCTC055,The Girl Who Stole An Elephant,,9781788006347,,,Available,Nizrana Farook,9781788006347,54
+57,TCTC056,The Girl Who Stole An Elephant,,9781788006347,,,Available,Nizrana Farook,9781788006347,55
+58,TCTC057,The Boy At The Back Of The Class,,9781510105010,,,Available,Onjali Q Rauf,9781510105010,56
+59,TCTC058,The Boy At The Back Of The Class,,9781510105010,,,Available,Onjali Q Rauf,9781510105010,57
+60,TCTC059,Uniquely You,,9781546012498,,,Borrowed,Joyce Meyer,9781546012498,58
+61,TCTC060,Uniquely You,,9781546012498,,,Available,Joyce Meyer,9781546012498,59
+62,TCTC061,The Koala Who Could,,9781408351482,,,Available,"Rachel Bright, Jim Field",9781408351482,60
+63,TCTC062,The Koala Who Could,,9781408351482,,,Available,"Rachel Bright, Jim Field",9781408351482,61
+64,TCTC063,The Lost Whale,,9780008412968,,,Borrowed,Hannah Gold,9780008412968,62
+65,TCTC064,The Lost Whale,,9780008412968,,,Borrowed,Hannah Gold,9780008412968,63
+66,TCTC065,I am Shudu,,9781431433834,,,Available,Shudufhadzo Musida,9781431433834,64
+67,TCTC066,I am Shudu,,9781431433834,,,Available,Shudufhadzo Musida,9781431433834,65
+68,TCTC067,Journey To Joburg,,9780007263509,,,Available,Beverly Naidoo,9780007263509,66
+69,TCTC068,Journey To Joburg,,9780007263509,,,Available,Beverly Naidoo,9780007263509,67
+70,TCTC069,Wonder,,9780552565974,,,Available,R J Palacio,9780552565974,68
+71,TCTC070,Wonder,,9780552565974,,,Available,R J Palacio,9780552565974,69
+72,TCTC071,I Am Human,,9781419746734,,,Available,Verde/Reynolds,9781419746734,70
+73,TCTC072,I Am Human,,9781419746734,,,Available,Verde/Reynolds,9781419746734,71
+74,TCTC073,Thank You Omu,,9780316431248,,,Available,Oge Mora,9780316431248,72
+75,TCTC074,Thank You Omu,,9780316431248,,,Available,Oge Mora,9780316431248,73
+76,TCTC075,My Mouth Is A Volcano,,9781931636858,,,Available,Julia Cook,9781931636858,74
+77,TCTC076,My Mouth Is A Volcano,,9781931636858,,,Available,Julia Cook,9781931636858,75
+78,TCTC077,The Mindful Little Explorer: Adventure In Feelings,,9788870209197,,,Available,Max Storywel,9788870209197,76
+79,TCTC078,The Mindful Little Explorer: Adventure In Feelings,,9788870209197,,,Available,Max Storywel,9788870209197,77
+80,TCTC079,Wangari's Trees Of Peace,,9781328869210,,,Available,Jeanette Winter,9781328869210,78
+81,TCTC080,Wangari's Trees Of Peace,,9781328869210,,,Available,Jeanette Winter,9781328869210,79
+82,TCTC081,We Are One,,9781776250417,,,Available,Refiloe Moahloli,9781776250417,80
+83,TCTC082,We Are One,,9781776250417,,,Available,Refiloe Moahloli,9781776250417,81
+84,TCTC083,Have You Filled A Bucket Today?,,9780996099936,,,Available,Carol McCloud,9780996099936,82
+85,TCTC084,Have You Filled A Bucket Today?,,9780996099936,,,Available,Carol McCloud,9780996099936,83
+86,TCTC085,The Lion Inside,,9781408331606,,,Available,Rachel Bright,9781408331606,84
+87,TCTC086,The Lion Inside,,9781408331606,,,Available,Rachel Bright,9781408331606,85
+88,TCTC087,The Whale Who Wanted More,,9781408349229,,,Available,Rachel Bright,9781408349229,86
+89,TCTC088,The Whale Who Wanted More,,9781408349229,,,Available,Rachel Bright,9781408349229,87
+90,TCTC089,The Heart And The Bottle,,9780007182343,,,Available,Oliver Jeffers,9780007182343,88
+91,TCTC090,The Heart And The Bottle,,9780007182343,,,Available,Oliver Jeffers,9780007182343,89
+92,TCTC091,Those Shoes,,9780763642846,,,Available,Maribeth Boelts,9780763642846,90
+93,TCTC092,Those Shoes,,9780763642846,,,Available,Maribeth Boelts,9780763642846,91
+94,TCTC093,Zamo The Rabit,,9780152010102,,,Available,Gerald McDermott,9780152010102,92
+95,TCTC094,Zamo The Rabit,,9780152010102,,,Available,Gerald McDermott,9780152010102,93
+96,TCTC095,The Oak Tree,,9780702324352,,,Available,Julia Donaldson,9780702324352,94
+97,TCTC096,The Oak Tree,,9780702324352,,,Available,Julia Donaldson,9780702324352,95
+98,TCTC097,Finn's Little Fibs,,9781526642479,,,Available,Tom Percival,9781526642479,96
+99,TCTC098,Finn's Little Fibs,,9781526642479,,,Available,Tom Percival,9781526642479,97
+,TCTC099,My Sister The Vimpire  Fangtastic,,97811405240564,,,Available,Sienna Mercer,97811405240564,98
+,TCTC100,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971,99
+,TCTC101,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971,100
+,TCTC102,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971,101
+,TCTC103,My Sister The Vampire,,9781405256971,,,Available,Sienna Mercer,9781405256971,102
+,TCTC104,My Sister The Vampire 3 Revamped,,9781405243711,,,Available,Sienna Mercer,9781405243711,103
+,TCTC105,My Sister The Vampire 4 Vampalicious,,9781405243728,,,Available,Sienna Mercer,9781405243728,104
+,TCTC106,My Sister The Vampire 5 Take Two,,9781405256971,,,Available,Sienna Mercer,9781405256971,105
+,TCTC107,My Weird But True,,9781426317279,,,Available,National Geographic Kids,9781426317279,106
+,TCTC108,David Gets In Trouble,,9780439050227,,,Available,David Shannon,9780439050227,107
+,TCTC109,David Gets In Trouble,,9780439050227,,,Available,David Shannon,9780439050227,108
+,TCTC110,Part Of The Teaam,,9781776251599,,,Available,Rifiloe Moahloli,9781776251599,109
+,TCTC111,Part Of The Teaam,,9781776251599,,,Available,Rifiloe Moahloli,9781776251599,110
+,TCTC112,Our Beautiful Colors,,9780593434970,,,Available,Nikki Shannon Smith,9780593434970,111
+,TCTC113,Our Beautiful Colors,,9780593434970,,,Available,Nikki Shannon Smith,9780593434970,112
+,TCTC114,Giraffers Can't Dance,,9781841215655,,,Available,"Giles Andreae, Guy  Parker Rees",9781841215655,113
+,TCTC115,Giraffers Can't Dance,,9781841215655,,,Available,"Giles Andreae, Guy  Parker Rees",9781841215655,114
+,TCTC116,Africa Amazing Africa,,9781406376586,,,Available,Atinuke,9781406376586,115
+,TCTC117,Africa Amazing Africa,,9781406376586,,,Available,Atinuke,9781406376586,116
+,TCTC118,Zoya and Naru,,9781431434190,,,Available,Caroline Montague,9781431434190,117
+,TCTC119,Zoya And Naru,,9781431434190,,,Available,Caroline Montague,9781431434190,118
+,TCTC120,What A Waste,,9780241366912,,,Available,Jess French,9780241366912,119
+,TCTC121,What A Waste,,9780241366912,,,Available,Jess French,9780241366912,120
+,TCTC122,Last Stop On Market Street,,9780399257742,,,Available,Matt De La Pena,9780399257742,121
+,TCTC123,Last Stop On Market Street,,9780399257742,,,Available,Matt De La Pena,9780399257742,122
+,TCTC124,Why Not You,,9780593900093,,,Available,Ciara and Russel Wilson,9780593900093,123
+,TCTC125,Why Not You,,9780593900093,,,Available,Ciara and Russel Wilson,9780593900093,124
+,TCTC126,The Giving Tree,,9780060256654,,,Available,Shel SilverStein,9780060256654,125
+,TCTC127,The Giving Tree,,9780060256654,,,Available,Shel SilverStein,9780060256654,126
+,TCTC128,Skin Love,,9783985730049,,,Available,Jettina Lantelme,9783985730049,127
+,TCTC129,Skin Love,,Jettina Lantelme,,,Available,Jettina Lantelme,JETTINALANTELME,128
+,TCTC129,Resilience,,9781925089349,,,Available,Jayneen Sanders,9781925089349,129
+,TCTC130,Resilience,,9781925089349,,,Available,Jayneen Sanders,9781925089349,130
+,TCTC131,Wanda,,9781431428854,,,Available,Sihle Nontshokweni and Mathabo,9781431428854,131
+,TCTC132,Wanda,,9781431428854,,,Available,Sihle Nontshokweni and Mathabo,9781431428854,132
+,TCTC133,The Empty Pot: Demi,,9780805049008,,,Available,Henry Holt and Company,9780805049008,133
+,TCTC134,The Empty Pot: Demi,,9780805049008,,,Available,Henry Holt and Company,9780805049008,134
+,TCTC135,Food For Hope,,9781954354241,,,Available,Jeff Gottesfeld,9781954354241,135
+,TCTC136,Food For Hope,,9781954354241,,,Available,Jeff Gottesfeld,9781954354241,136
+,TCTC137,Rules On Strike,,9781637316108,,,Available,Jennifer Jones,9781637316108,137
+,TCTC138,Rules On Strike,,9781637316108,,,Available,Jennifer Jones,9781637316108,138
+,TCTC139,Cape,,9781250840509,,,Available,Kevin Johnson,9781250840509,139
+,TCTC140,Cape,,9781250840509,,,Available,Kevin Johnson,9781250840509,140
+,TCTC141,Remarkable Me,,9781776252879,,,Available,Tshwanelo Serumola,9781776252879,141
+,TCTC142,Remarkable Me,,9781776252879,,,Available,Tshwanelo Serumola,9781776252879,142
+,TCTC143,Anansi The Spider: A Tale From The Ashanti,,9780805003116,,,Available,Gerald McDermott,9780805003116,143
+,TCTC144,Anansi The Spider: A Tale From The Ashanti,,9780805003116,,,Available,Gerald McDermott,9780805003116,144
+,TCTC145,Fill A Bucket: A guide to Dailly Happiness For Young Children,,9780996099981,,,Available,Carol McCloud and Katherin Martin,9780996099981,145
+,TCTC146,Fill A Bucket: A guide to Dailly Happiness For Young Children,,9780996099981,,,Available,Carol McCloud and Katherin Martin,9780996099981,146
+,TCTC147,Did I Ever Tell you How Lucky You Are?,,9780008288136,,,Available,Dr.Suess,9780008288136,147
+,TCTC148,Did I Ever Tell you How Lucky You Are?,,9780008288136,,,Available,Dr.Suess,9780008288136,148
+,TCTC149,If All The World Were,,9781786036513,,,Available,Joseph Coelho and Allison Colpys,9781786036513,149
+,TCTC150,If All The World Were,,9781786036513,,,Available,Joseph Coelho and Allison Colpys,9781786036513,150
+,TCTC151,A Sick Day For Amos McGee,,9781596434028,,,Available,Philiph C.Stead,9781596434028,151
+,TCTC152,A Sick Day For Amos McGee,,9781596434028,,,Available,Philiph C.Stead,9781596434028,152
+,TCTC154,Sulwe,,9780241394335,,,Available,Lupita Nyongo,9780241394335,153
+,TCTC154,Sulwe,,9780241394335,,,Available,Lupita Nyongo,9780241394335,154
+,TCTC155,Sylvester And The  Magic Pebble,,9780141374680,,,Available,William Steig,9780141374680,155
+,TCTC156,Sylvester And The  Magic Pebble,,9780141374680,,,Available,William Steig,9780141374680,156
+,TCTC157,Mama Panya's Pancakes: A Village Tale From Kenya,,9781905236640,,,Available,Mary And Rich Chamberlin,9781905236640,157
+,TCTC158,Mama Panya's Pancakes: A Village Tale From Kenya,,9781905236640,,,Available,Mary And Rich Chamberlin,9781905236640,158
+,TCTC159,Roald Dahl Collection: George's Marvelous Medicine,,9780141371405,,,Borrowed,Roald Dahl,9780141371405,159
+,TCTC160,Roald Dahl Collection: George's Marvelous Medicine,,9780141371405,,,Available,Roald Dahl,9780141371405,160
+,TCTC161,Roald Dahl Collection: Danny The Champion Of The World,,9780141371375,,,Available,Roald Dahl,9780141371375,161
+,TCTC162,Roald Dahl Collection: Danny The Champion Of The World,,9780141371375,,,Available,Roald Dahl,9780141371375,162
+,TCTC163,Roald Dahl Collection: James And The Giant Peach,,9780141371429,,,Available,Roald Dahl,9780141371429,163
+,TCTC164,Roald Dahl Collection: James And The Giant Peach,,9780141371429,,,Available,Roald Dahl,9780141371429,164
+,TCTC165,Roald Dahl Collection: Fantastic  Mr Fox,,9780141371382,,,Available,Roald Dahl,9780141371382,165
+,TCTC166,Roald Dahl Collection: Fantastic  Mr Fox,,9780141371382,,,Available,Roald Dahl,9780141371382,166
+,TCTC167,Roald Dahl Collection: Going Solo,,9780141371412,,,Available,Roald Dahl,9780141371412,167
+,TCTC168,Roald Dahl Collection: Boy,,9780141371344,,,Available,Roald Dahl,9780141371344,168
+,TCTC169,Roald Dahl Collection: Boy,,9780141371344,,,Available,Roald Dahl,9780141371344,169
+,TCTC170,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450,170
+,TCTC171,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450,171
+,TCTC173,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450,172
+,TCTC174,Roald Dahl Collection: The Giraffe And The Pelly And Me,,9780141371450,,,Available,Roald Dahl,9780141371450,173
+,TCTC175,Roald Dahl Collection: Charlie And The Great Glass Elevator,,9780141371368,,,Available,Roald Dahl,9780141371368,174
+,TCTC176,Roald Dahl Collection: Charlie And The Great Glass Elevator,,9780141371368,,,Available,Roald Dahl,9780141371368,175
+,TCTC177,Roald Dahl Collection: Matilda,,9780141371436,,,Available,Roald Dahl,9780141371436,176
+,TCTC178,Roald Dahl Collection: Matilda,,9780141371436,,,Available,Roald Dahl,9780141371436,177
+,TCTC179,Roald Dahl Collection: The Twits,,9780141371474,,,Available,Roald Dahl,9780141371474,178
+,TCTC180,Roald Dahl Collection: The Twits,,9780141371474,,,Available,Roald Dahl,9780141371474,179
+,TCTC181,Roald Dahl Collection: Billy And The Minpins,,9780141377284,,,Available,Roald Dahl,9780141377284,180
+,TCTC182,Roald Dahl Collection: Billy And The Minpins,,9780141377284,,,Available,Roald Dahl,9780141377284,181
+,TCTC183,Dr Suess Makes Read Fun: ABC,,9780008203917,,,Available,Dr Suess,9780008203917,182
+,TCTC184,Dr Suess Makes Read Fun: ABC,,9780008203917,,,Available,Dr Suess,9780008203917,183
+,TCTC185,Dr Suess Makes Read Fun: Daisy Head Mayzie,,9780008288143,,,Available,Dr Suess,9780008288143,184
+,TCTC186,Dr Suess Makes Read Fun: Daisy Head Mayzie,,9780008288143,,,Available,Dr Suess,9780008288143,185
+,TCTC187,Dr Suess Makes Read Fun: Sleep Book,,9780008240059,,,Available,Dr Suess,9780008240059,186
+,TCTC188,Dr Suess Makes Read Fun: Sleep Book,,9780008240059,,,Available,Dr Suess,9780008240059,187
+,TCTC189,Dr Suess Makes Read Fun: If I Ran The Circus,,9780008272005,,,Available,Dr Suess,9780008272005,188
+,TCTC190,Dr Suess Makes Read Fun: If I Ran The Circus,,9780008272005,,,Available,Dr Suess,9780008272005,189
+,TCTC191,Dr Suess Makes Read Fun: Horton Hears A Who!,,9780008240028,,,Available,Dr Suess,9780008240028,190
+,TCTC192,Dr Suess Makes Read Fun: Horton Hears A Who!,,9780008240028,,,Available,Dr Suess,9780008240028,191
+,TCTC193,Dr Suess Makes Read Fun: How The Grinch Stole Christmas,,9780008201524,,,Available,Dr Suess,9780008201524,192
+,TCTC194,Dr Suess Makes Read Fun: How The Grinch Stole Christmas,,9780008201524,,,Available,Dr Suess,9780008201524,193
+,TCTC195,Dr Suess Makes Read Fun: The Lorax,,9780008203924,,,Available,Dr Suess,9780008203924,194
+,TCTC196,Dr Suess Makes Read Fun: The Lorax,,9780008203924,,,Available,Dr Suess,9780008203924,195
+,TCTC197,Dr Suess Makes Read Fun: Oh The Places You'll Go!,,9780008201487,,,Available,Dr Suess,9780008201487,196
+,TCTC198,Dr Suess Makes Read Fun: Oh The Places You'll Go!,,9780008201487,,,Available,Dr Suess,9780008201487,197
+,TCTC199,Dr Suess Makes Read Fun: OMarvin K.Money Will You Please Go Now!,,9780008288105,,,Available,Dr Suess,9780008288105,198
+,TCTC200,Dr Suess Makes Read Fun: OMarvin K.Money Will You Please Go Now!,,9780008288105,,,Available,Dr Suess,9780008288105,199
+,TCTC201,Dr Suess Makes Read Fun: I can Read With My Eyes Shut!,,9780008240011,,,Available,Dr Suess,9780008240011,200
+,TCTC202,Dr Suess Makes Read Fun: I can Read With My Eyes Shut!,,9780008240011,,,Available,Dr Suess,9780008240011,201
+,TCTC201,Dr Suess Makes Read Fun: The Cat In The Hat Comes Back,,9780008203894,,,Available,Dr Suess,9780008203894,202
+,TCTC202,Dr Suess Makes Read Fun: The Cat In The Hat Comes Back,,9780008203894,,,Available,Dr Suess,9780008203894,203
+,TCTC203,Dr Suess Makes Read Fun: Fox In Socks,,9780008201500,,,Available,Dr Suess,9780008201500,204
+,TCTC204,Dr Suess Makes Read Fun: Fox In Socks,,9780008201500,,,Available,Dr Suess,9780008201500,205
+,TCTC205,Dr Suess Makes Read Fun: Green Eggs And Ham,,9780008201470,,,Available,Dr Suess,9780008201470,206
+,TCTC206,Dr Suess Makes Read Fun: Green Eggs And Ham,,9780008201470,,,Available,Dr Suess,9780008201470,207
+,TCTC207,Dr Suess Makes Read Fun: The Cat In The Hat,,9780008201517,,,Available,Dr Suess,9780008201517,208
+,TCTC208,Dr Suess Makes Read Fun: The Cat In The Hat,,9780008201517,,,Available,Dr Suess,9780008201517,209
+,TCTC209,Dr Suess Makes Read Fun: The Shape Of Me And Other Stuff,,9780007340958,,,Available,Dr Suess,9780007340958,210
+,TCTC210,Dr Suess Makes Read Fun: The Shape Of Me And Other Stuff,,9780007340958,,,Available,Dr Suess,9780007340958,211
+,TCTC211,Dr Suess Makes Read Fun: Mr Brown Can Moo! Can You?,,9780008240004,,,Available,Dr Suess,9780008240004,212
+,TCTC212,Dr Suess Makes Read Fun: Mr Brown Can Moo! Can You?,,9780008240004,,,Available,Dr Suess,9780008240004,213
+,TCTC213,Dr Suess Makes Read Fun: There's A Wocket In My Pocket!,,9780008239985,,,Available,Dr Suess,9780008239985,214
+,TCTC214,Dr Suess Makes Read Fun: There's A Wocket In My Pocket!,,9780008239985,,,Available,Dr Suess,9780008239985,215
+,TCTC215,Dr Suess Makes Read Fun: The Foot Book,,9780008271916,,,Available,Dr Suess,9780008271916,216
+,TCTC216,Dr Suess Makes Read Fun: The Foot Book,,9780008271916,,,Available,Dr Suess,9780008271916,217
+,TCTC217,Dr Suess Makes Read Fun: Hop On Pop,,9780008203900,,,Available,Dr Suess,9780008203900,218
+,TCTC218,Dr Suess Makes Read Fun: Hop On Pop,,9780008203900,,,Available,Dr Suess,9780008203900,219
+,TCTC219,Dr Suess Makes Read Fun: One Fish Two Fish Red Fish Blue Fish,,9780008201494,,,Available,Dr Suess,9780008201494,220
+,TCTC220,Dr Suess Makes Read Fun: One Fish Two Fish Red Fish Blue Fish,,9780008201494,,,Available,Dr Suess,9780008201494,221
+,TCTC221,Love To Draw,,9781488902437,,,Available,Hinkler,9781488902437,222
+,TCTC222,Skin Love,,Jettina Lantelme,,,Available,Jettina Lantelme,JETTINALANTELME,223
