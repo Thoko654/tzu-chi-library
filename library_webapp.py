@@ -72,19 +72,6 @@ def _canon(s: str) -> str:
     s = str(s)
     return "".join(ch for ch in s if ch.isalnum()).upper()
 
-def _same_person(a: str, b: str) -> bool:
-    return str(a).strip().casefold() == str(b).strip().casefold()
-
-def student_has_open_borrow(logs_df: pd.DataFrame, student_name: str):
-    """Return (has_open, rows_df) for the given student."""
-    if not student_name or logs_df.empty or "Returned" not in logs_df.columns:
-        return False, pd.DataFrame()
-    mask = (logs_df["Returned"].str.lower() == "no") & (
-        logs_df["Student"].astype(str).str.strip().str.casefold() == str(student_name).strip().casefold()
-    )
-    open_rows = logs_df[mask]
-    return (len(open_rows) > 0, open_rows)
-
 # ======================================================
 # GitHub Sync (optional)
 # ======================================================
@@ -92,7 +79,7 @@ def _gh_enabled() -> bool:
     return "github_store" in st.secrets
 
 def _gh_conf():
-    s = st.secrets.get("github_store", {})
+    s = st.secrets["github_store"]
     return s.get("token", ""), s.get("repo", ""), s.get("branch", "main"), s.get("base_path", "data")
 
 def _gh_headers():
@@ -152,16 +139,11 @@ def _gh_self_test():
         return f"GH check failed: {e}", "red"
 
 def _gh_put_csv(local_path, repo_rel_path, message):
-    try:
-        with open(local_path, "rb") as f:
-            csv_bytes = f.read()
-        repo, branch, base_path = _gh_paths()
-        path = f"{base_path}/{repo_rel_path}".lstrip("/")
-        return _gh_put_file(repo, branch, path, csv_bytes, message)
-    except Exception as e:
-        # Don’t crash the app if GitHub push fails
-        st.sidebar.error(f"GitHub sync failed: {e}")
-        return None
+    with open(local_path, "rb") as f:
+        csv_bytes = f.read()
+    repo, branch, base_path = _gh_paths()
+    path = f"{base_path}/{repo_rel_path}".lstrip("/")
+    return _gh_put_file(repo, branch, path, csv_bytes, message)
 
 def _gh_fetch_bytes(repo_rel_path: str):
     """Return file bytes from GitHub (raw first, then Contents API)."""
@@ -295,8 +277,8 @@ def load_books():
     if "Status" not in df.columns: df["Status"] = "Available"
     for c in df.columns: df[c] = df[c].astype(str).str.strip()
 
-    # Remove empty rows
-    if "Book Title" in df.columns and "Book ID" in df.columns:
+    # Remove rows that are totally empty (Title + Book ID + Barcode are blank)
+    if {"Book Title","Book ID","Barcode"}.issubset(df.columns):
         df = df[~((df["Book Title"] == "") & (df["Book ID"] == "") & (df["Barcode"] == ""))].copy()
 
     # Normalize status
@@ -305,6 +287,10 @@ def load_books():
         .map({"available":"Available","borrowed":"Borrowed","out":"Borrowed","issued":"Borrowed","":"Available"})
         .fillna("Available")
     )
+
+    # Unique internal index for copy-level operations
+    df = df.reset_index(drop=True)
+    df["_idx"] = df.index
 
     # Canonical barcode for scanner matches
     df["_BARCODE_CANON"] = df["Barcode"].map(_canon)
@@ -349,7 +335,6 @@ def load_logs():
     for c in required:
         if c not in df.columns:
             df[c] = ""
-    # Optional barcode column (keep if present)
     if "Barcode" not in df.columns:
         df["Barcode"] = ""
 
@@ -379,17 +364,26 @@ def save_logs(df):
     out = out[cols]
     out.to_csv(LOG_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
+        try:
+            _gh_put_csv(LOG_CSV, "Borrow_log.csv", "Update Borrow_log.csv via Streamlit app")
+        except Exception as e:
+            st.warning(f"GitHub sync failed: {e}")
 
 def save_students(df):
     df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        _gh_put_csv(STUDENT_CSV, "Student_records.csv", "Update Student_records.csv via Streamlit app")
+        try:
+            _gh_put_csv(STUDENT_CSV, "Student_records.csv", "Update Student_records.csv via Streamlit app")
+        except Exception as e:
+            st.warning(f"GitHub sync failed: {e}")
 
 def save_books(df):
     df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if _gh_enabled():
-        _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
+        try:
+            _gh_put_csv(BOOKS_CSV, "Library_books.csv", "Update Library_books.csv via Streamlit app")
+        except Exception as e:
+            st.warning(f"GitHub sync failed: {e}")
 
 # ======================================================
 # Catalog↔Log sync helper
@@ -523,7 +517,6 @@ def main():
     else:
         st.caption("✅ Catalog and Log statuses look consistent.")
 
-    # Tabs (includes the "Borrowed now" view)
     tabs = st.tabs([
         "📖 Borrow",
         "📦 Return",
@@ -545,11 +538,9 @@ def main():
         scan_student_code = sc1.text_input("Scan/enter Student Code", key="scan_student_code").strip()
         scan_book_barcode = sc2.text_input("Scan/enter Book Barcode", key="scan_book_barcode").strip()
 
-        # Try to resolve student & book from scanner inputs
+        # Try to resolve student & book copy from scanner inputs
         selected_student = ""
-        scanned_book_idx = None  # specific book row index (for duplicates)
-        selected_book_id = ""
-        selected_barcode = ""
+        selected_copy_idx = None  # internal index for the copy
 
         if scan_student_code:
             canon_code = _canon(scan_student_code)
@@ -562,121 +553,121 @@ def main():
 
         if scan_book_barcode:
             canon_bar = _canon(scan_book_barcode)
-            hitb = books.loc[books["_BARCODE_CANON"] == canon_bar]
+            hitb = books.loc[(books["_BARCODE_CANON"] == canon_bar) & (books["Status"].str.lower()=="available")]
             if not hitb.empty:
-                scanned_book_idx = int(hitb.index[0])
-                selected_book_id = hitb.iloc[0]["Book ID"]
-                selected_barcode = hitb.iloc[0]["Barcode"]
-                st.success(f"Book found: {hitb.iloc[0]['Book Title']} (copy)")
+                selected_copy_idx = int(hitb.iloc[0]["_idx"])
+                st.success(f"Book copy found: {hitb.iloc[0]['Book Title']} (row #{selected_copy_idx})")
             else:
-                st.error("Book barcode not found.")
+                st.error("Matching available copy by barcode not found.")
 
         st.markdown("---")
 
-        include_borrowed = st.checkbox("Show borrowed books (for back capture / corrections)", value=False)
-
-        # Fallback selectors (or to override)
-        # Students
-        student_names = (
-            students["Name"].str.strip() + " " + students["Surname"].str.strip()
-        ).dropna().tolist() if {"Name","Surname"}.issubset(students.columns) else []
+        # Students dropdown (fallback or override)
+        if {"Name", "Surname"}.issubset(students.columns):
+            student_names = (students["Name"].str.strip() + " " + students["Surname"].str.strip()).dropna().tolist()
+        else:
+            student_names = []
         sel_student_dropdown = st.selectbox(
             "👩‍🎓 Pick Student (optional if you scanned)",
             [""] + sorted(student_names),
-            index=0
+            index=0,
         )
 
-        # Books (show duplicates as separate options)
-        if include_borrowed:
-            candidate_df = books.copy()
-        else:
-            candidate_df = books[books["Status"].str.lower().eq("available")].copy()
-
-        # Build labels with row index so duplicates are visible
-        candidate_df = candidate_df.assign(_idx=candidate_df.index.astype(int))
-        def _label_row(r):
-            parts = [str(r.get("Book Title","")).strip()]
-            bid = str(r.get("Book ID","")).strip()
-            bar = str(r.get("Barcode","")).strip()
-            if bid: parts.append(f"ID:{bid}")
-            if bar: parts.append(f"BC:{bar}")
-            parts.append(f"row#{r['_idx']}")
-            return " | ".join(parts)
-        options = [("", "(none)")] + [(int(r["_idx"]), _label_row(r)) for _, r in candidate_df.iterrows()]
-
-        sel_book_option = st.selectbox("📚 Pick Book copy (optional if you scanned)", options, format_func=lambda x: x[1])
-        sel_book_idx = None if sel_book_option[0]=="" else int(sel_book_option[0])
-
-        # Decide final selections (scanner > dropdown)
         final_student = selected_student or sel_student_dropdown
 
-        # Pick the exact book row
-        if scanned_book_idx is not None:
-            final_book_row = books.loc[[scanned_book_idx]]
-        elif sel_book_idx is not None:
-            final_book_row = books.loc[[sel_book_idx]]
-        else:
-            final_book_row = pd.DataFrame()
+        # Build available copy list (each row is a copy)
+        candidate_df = books[books["Status"].str.lower() == "available"].copy()
+        def _label_row(r):
+            return f"{r.get('Book Title','')}  |  ID:{r.get('Book ID','')}  |  BC:{r.get('Barcode','')}  |  row#{r['_idx']}"
+
+        options = [(None, "(none)")] + [(int(r["_idx"]), _label_row(r)) for _, r in candidate_df.iterrows()]
+
+        def _fmt_opt(opt):
+            try:
+                return opt[1]
+            except Exception:
+                return str(opt)
+
+        # Preselect scanned copy if present
+        pre_index = 0
+        if selected_copy_idx is not None:
+            for i, (val, lbl) in enumerate(options):
+                if val == selected_copy_idx:
+                    pre_index = i
+                    break
+
+        sel_copy_option = st.selectbox("📚 Pick Book copy (optional if you scanned)", options, index=pre_index, format_func=_fmt_opt)
+        sel_copy_idx = None if (sel_copy_option is None or sel_copy_option[0] is None) else int(sel_copy_option[0])
+
+        # Decide final copy: scanner > dropdown
+        final_copy_idx = selected_copy_idx if selected_copy_idx is not None else sel_copy_idx
 
         days = st.slider("Borrow Days", 1, 30, 14)
         allow_override = st.checkbox("Allow borrow even if this copy is marked Borrowed (back capture)")
 
         if st.button("✅ Confirm Borrow"):
-            # Basic inputs present?
-            if not final_student or final_book_row.empty:
-                st.error("Please provide both a student (scan or pick) and a specific book copy (scan or pick).")
+            if not final_student:
+                st.error("Please choose a student (scan or pick).")
+                st.stop()
+            if final_copy_idx is None:
+                st.error("Please pick a specific book copy (row) first.")
                 st.stop()
 
-            # Enforce: one active book per student
-            logs_latest = load_logs()
-            has_open, open_rows = student_has_open_borrow(logs_latest, final_student)
-            if has_open:
-                got = open_rows.iloc[0]
-                st.error(
-                    f"❌ {final_student} already has a book out: **{got['Book Title']}** "
-                    f"(borrowed {got['Date Borrowed']}). Please return it first."
-                )
+            # One-book-per-student rule
+            open_for_student = logs[
+                (logs["Student"].astype(str).str.strip() == final_student)
+                & (logs["Returned"].str.lower() == "no")
+            ]
+            if not open_for_student.empty:
+                titles = ", ".join(sorted(open_for_student["Book Title"].astype(str).str.strip().unique().tolist()))
+                st.error(f"❗ {final_student} already has a book out: {titles}. Return it before borrowing another.")
                 st.stop()
 
-            # Pull fields from the chosen copy
-            r = final_book_row.iloc[0]
-            final_book_title = str(r.get("Book Title","")).strip()
-            book_id = str(r.get("Book ID","")).strip()
-            barcode = str(r.get("Barcode","")).strip()
-            current_status = str(r.get("Status","Available")).strip()
+            # Fetch the copy row
+            row = books.loc[books["_idx"] == final_copy_idx]
+            if row.empty:
+                st.error("Selected copy not found anymore.")
+                st.stop()
 
-            if current_status.lower() == "borrowed" and not allow_override:
+            current_status = row.iloc[0]["Status"]
+            book_title = row.iloc[0]["Book Title"]
+            book_id    = row.iloc[0]["Book ID"]
+            barcode    = row.iloc[0]["Barcode"]
+
+            if current_status == "Borrowed" and not allow_override:
                 st.error("This copy is marked as Borrowed. Tick the override checkbox to capture anyway.")
                 st.stop()
 
-            # Save borrow
             now = datetime.now()
             due = now + timedelta(days=days)
 
+            # Write log
+            logs_latest = load_logs()
             new_row = {
                 "Student": final_student,
-                "Book Title": final_book_title,
-                "Book ID": book_id,
+                "Book Title": book_title,
+                "Book ID": book_id or "",
                 "Date Borrowed": now.strftime("%Y-%m-%d %H:%M:%S"),
                 "Due Date": due.strftime("%Y-%m-%d %H:%M:%S"),
                 "Returned": "No",
-                "Barcode": barcode,
+                "Barcode": barcode or "",
             }
             logs_latest = df_append(logs_latest, new_row)
             save_logs(logs_latest)
 
-            # Update catalog (status of that specific row)
-            if "Status" in books.columns:
-                books.loc[final_book_row.index[0], "Status"] = "Borrowed"
-                save_books(books)
+            # Update catalog (set only this copy to Borrowed)
+            books_now = load_books()
+            books_now.loc[books_now["_idx"] == final_copy_idx, "Status"] = "Borrowed"
+            save_books(books_now)
 
-            st.success(f"{final_book_title} borrowed by {final_student}. Due on {due.date()}")
+            st.success(f"{book_title} borrowed by {final_student}. Due on {due.date()}")
             st.rerun()
 
     # ---------------------- Return ----------------------
     with tabs[1]:
         st.subheader("Return a Book")
         logs = load_logs()
+        books_now = load_books()
         if logs.empty or "Returned" not in logs.columns:
             st.info("No books currently borrowed.")
         else:
@@ -696,8 +687,17 @@ def main():
                 st.info("No books currently borrowed.")
             else:
                 open_logs_view["Label"] = open_logs_view["Student"] + " - " + open_logs_view["Book Title"]
+                labels = open_logs_view["Label"].tolist()
                 default_idx = 0
-                selected_return = st.selectbox("Choose to Return", open_logs_view["Label"])
+                if idx_by_barcode is not None:
+                    try:
+                        # Preselect by barcode match
+                        loc = open_logs_view.index.get_loc(idx_by_barcode)
+                        default_idx = loc if isinstance(loc, int) else 0
+                    except Exception:
+                        default_idx = 0
+
+                selected_return = st.selectbox("Choose to Return", labels, index=min(default_idx, len(labels)-1) if labels else 0)
                 if st.button("📦 Mark as Returned"):
                     row = open_logs_view[open_logs_view["Label"] == selected_return].iloc[0]
                     idx = logs[
@@ -708,18 +708,14 @@ def main():
                     if len(idx):
                         logs.loc[idx, "Returned"] = "Yes"
                         save_logs(logs)
-                        if "Status" in books.columns:
-                            # set any matching copy (by Book ID/Barcode if present) back to Available
-                            title_mask = books["Book Title"].astype(str).str.strip() == str(row["Book Title"]).strip()
-                            id_mask = (books["Book ID"].astype(str).str.strip() == str(row.get("Book ID","")).strip()) if "Book ID" in books.columns else False
-                            bc_mask = (books["Barcode"].astype(str).str.strip() == str(row.get("Barcode","")).strip()) if "Barcode" in books.columns else False
-                            if id_mask is not False and any(id_mask):
-                                books.loc[id_mask, "Status"] = "Available"
-                            elif bc_mask is not False and any(bc_mask):
-                                books.loc[bc_mask, "Status"] = "Available"
+                        # Set ALL matching copies by title back to Available? No—only copies that match title are indistinguishable.
+                        # Safer: set by Title + Barcode if available, else Title.
+                        if "Status" in books_now.columns:
+                            if row.get("Barcode",""):
+                                books_now.loc[books_now["Barcode"].astype(str).str.strip() == row["Barcode"], "Status"] = "Available"
                             else:
-                                books.loc[title_mask, "Status"] = "Available"
-                            save_books(books)
+                                books_now.loc[books_now["Book Title"] == row["Book Title"], "Status"] = "Available"
+                            save_books(books_now)
                         st.success(f"{row['Book Title']} returned by {row['Student']}")
                         st.rerun()
                     else:
@@ -729,7 +725,6 @@ def main():
     with tabs[2]:
         st.subheader("📋 Borrowed now (not returned)")
 
-        # Always reload to reflect the latest state
         logs_live = load_logs()
         books_live = load_books()
 
@@ -741,24 +736,24 @@ def main():
             if open_df.empty:
                 st.success("✅ No books currently out.")
             else:
-                # nice ordering
                 show_cols = ["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date"]
                 for c in show_cols:
                     if c not in open_df.columns:
                         open_df[c] = ""
 
-                # quick filters
                 c1, c2, _ = st.columns([2, 2, 1])
-                sel_student = c1.selectbox(
-                    "Filter by student (optional)",
-                    ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
-                    index=0
-                )
-                sel_book = c2.selectbox(
-                    "Filter by book (optional)",
-                    ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
-                    index=0
-                )
+                with c1:
+                    sel_student = st.selectbox(
+                        "Filter by student (optional)",
+                        ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
+                        index=0
+                    )
+                with c2:
+                    sel_book = st.selectbox(
+                        "Filter by book (optional)",
+                        ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
+                        index=0
+                    )
 
                 filt = open_df.copy()
                 if sel_student != "(All)":
@@ -766,7 +761,6 @@ def main():
                 if sel_book != "(All)":
                     filt = filt[filt["Book Title"].astype(str).str.strip() == sel_book]
 
-                # highlight overdue
                 now = datetime.now()
                 filt["Due Date"] = pd.to_datetime(filt["Due Date"], errors="coerce")
                 def _style(row):
@@ -779,7 +773,6 @@ def main():
                     use_container_width=True
                 )
 
-                # download
                 st.download_button(
                     "⬇️ Download current borrowers (CSV)",
                     filt[show_cols].to_csv(index=False),
@@ -789,10 +782,8 @@ def main():
 
                 st.markdown("---")
 
-                # optional: mark selected row(s) as returned
                 st.caption("Quick action")
                 if not filt.empty:
-                    # Build a label to uniquely identify a row
                     filt = filt.assign(
                         _label=filt["Student"].astype(str) + " | " +
                                filt["Book Title"].astype(str) + " | " +
@@ -815,12 +806,18 @@ def main():
                                         else str(r["Date Borrowed"]))
                                 )
                                 logs_edit.loc[mask, "Returned"] = "Yes"
-                                # set catalog back to Available
                                 if "Status" in books_live.columns:
-                                    books_live.loc[
-                                        books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
-                                        "Status"
-                                    ] = "Available"
+                                    # Title+Barcode precise update if possible
+                                    if "Barcode" in logs_edit.columns and str(r.get("Barcode","")).strip():
+                                        books_live.loc[
+                                            books_live["Barcode"].astype(str).str.strip() == str(r["Barcode"]).strip(),
+                                            "Status"
+                                        ] = "Available"
+                                    else:
+                                        books_live.loc[
+                                            books_live["Book Title"].astype(str).str.strip() == str(r["Book Title"]).strip(),
+                                            "Status"
+                                        ] = "Available"
                             save_logs(logs_edit)
                             save_books(books_live)
                             st.success(f"Marked {len(to_mark)} entr{'y' if len(to_mark)==1 else 'ies'} as returned.")
@@ -853,22 +850,21 @@ def main():
             author = st.text_input("Author")
             book_id = st.text_input("Book ID")
             barcode  = st.text_input("Barcode / ISBN")
-            status = st.selectbox("Status", ["Available", "Borrowed"], index=0)
             if st.button("Add Book"):
-                if not title.strip():
-                    st.error("Please enter a Book Title.")
+                if not title.strip() and not (barcode or "").strip():
+                    st.error("Please enter at least a Book Title or a Barcode/ISBN.")
                 else:
                     books_now = load_books()
                     books_now = df_append(books_now, {
                         "Book ID": (book_id or "").strip(),
                         "Book Title": title.strip(),
                         "Author": (author or "").strip(),
-                        "Status": status,
+                        "Status": "Available",
                         "Barcode": (barcode or "").strip(),
                         "_BARCODE_CANON": _canon(barcode),
                     })
                     save_books(books_now.drop(columns=["_BARCODE_CANON"], errors="ignore"))
-                    st.success("Book added.")
+                    st.success("Book copy added.")
 
     # ---------------------- Delete ----------------------
     with tabs[4]:
@@ -881,34 +877,43 @@ def main():
                 student_list = sorted((students_now["Name"] + " " + students_now["Surname"]).str.strip().tolist())
             else:
                 student_list = []
-            to_delete = st.selectbox("Select student to delete", student_list)
-            if st.button("Delete Student"):
-                if to_delete:
-                    parts = to_delete.strip().split()
-                    name_part = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
-                    surname_part = parts[-1] if len(parts) > 1 else ""
-                    mask = (students_now["Name"] == name_part) & (students_now["Surname"] == surname_part)
-                    students_now = students_now[~mask]
-                    save_students(students_now.drop(columns=["_CODE_CANON"], errors="ignore"))
-                    st.success("Student deleted.")
+            if not student_list:
+                st.info("No students to delete.")
+                to_delete = None
+            else:
+                to_delete = st.selectbox("Select student to delete", [""]+student_list)
+            if st.button("Delete Student") and to_delete:
+                parts = to_delete.strip().split()
+                name_part = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
+                surname_part = parts[-1] if len(parts) > 1 else ""
+                mask = (students_now["Name"] == name_part) & (students_now["Surname"] == surname_part)
+                students_now = students_now[~mask]
+                save_students(students_now.drop(columns=["_CODE_CANON"], errors="ignore"))
+                st.success("Student deleted.")
         else:
             books_now = load_books()
-            # show each row/copy separately to avoid accidental deletes
-            books_now = books_now.assign(_idx=books_now.index.astype(int))
             def _lbl(r):
-                bid = str(r.get("Book ID","")).strip()
-                bc  = str(r.get("Barcode","")).strip()
-                core = str(r.get("Book Title","")).strip()
-                extra = " / ".join(x for x in [f"ID:{bid}" if bid else "", f"BC:{bc}" if bc else ""] if x)
-                return f"{core} | {extra} | row#{r['_idx']}"
+                return f"{r.get('Book Title','')} | ID:{r.get('Book ID','')} | BC:{r.get('Barcode','')} | row#{r['_idx']}"
             opts = [(int(r["_idx"]), _lbl(r)) for _, r in books_now.iterrows()]
-            pick = st.selectbox("Select book copy to delete", opts, format_func=lambda x: x[1])
-            if st.button("Delete Book Copy"):
-                ridx = int(pick[0])
-                books_now = books_now.drop(index=ridx)
-                books_now = books_now.drop(columns=["_idx"], errors="ignore")
+            if not opts:
+                st.info("No books to delete.")
+                pick = None
+            else:
+                def _fmt_del(opt):
+                    try:
+                        return opt[1]
+                    except Exception:
+                        return str(opt)
+                pick = st.selectbox("Select book copy to delete", opts, format_func=_fmt_del)
+            if st.button("Delete Book Copy") and pick is not None:
+                copy_idx = int(pick[0]) if isinstance(pick, tuple) else int(pick)
+                books_now = books_now[books_now["_idx"] != copy_idx]
+                # reassign _idx
+                books_now = books_now.reset_index(drop=True)
+                books_now["_idx"] = books_now.index
                 save_books(books_now.drop(columns=["_BARCODE_CANON"], errors="ignore"))
                 st.success("Book copy deleted.")
+                st.rerun()
 
     # ---------------------- Catalog (View / Edit Books) ----------------------
     with tabs[5]:
@@ -919,7 +924,7 @@ def main():
             st.info("No books yet. Use the ➕ Add tab to add some.")
         else:
             col_f1, col_f2 = st.columns([2, 1])
-            search = col_f1.text_input("🔍 Search by title/author/ID/barcode", "")
+            search = col_f1.text_input("🔍 Search by title/author/ID/barcode/row#", "")
             only_available = col_f2.checkbox("Show only Available", value=False)
 
             df = books_now.copy()
@@ -930,6 +935,7 @@ def main():
                     | df.get("Author", "").str.lower().str.contains(q, na=False)
                     | df.get("Book ID", "").str.lower().str.contains(q, na=False)
                     | df.get("Barcode", "").str.lower().str.contains(q, na=False)
+                    | df["_idx"].astype(str).str.contains(q, na=False)
                 ].copy()
             if only_available and "Status" in df.columns:
                 df = df[df["Status"].str.lower().eq("available")].copy()
@@ -946,7 +952,7 @@ def main():
                 use_container_width=True,
                 column_config={
                     "Book ID": {"help": "Optional library ID / internal ID"},
-                    "Book Title": {"help": "Required"},
+                    "Book Title": {"help": "Required (or supply Barcode)"},
                     "Author": {"help": "Optional"},
                     "Status": {"help": "Available or Borrowed", "required": False, "editable": True},
                     "Barcode": {"help": "Scanner barcode / ISBN"},
@@ -991,6 +997,10 @@ def main():
                 updated["Status"] = updated["Status"].str.lower().map(
                     {"available": "Available", "borrowed": "Borrowed", "out": "Borrowed", "issued": "Borrowed"}
                 ).fillna("Available")
+
+                # Recalculate _idx after edits/adds
+                updated = updated.reset_index(drop=True)
+                updated["_idx"] = updated.index
 
                 save_books(updated.drop(columns=["_BARCODE_CANON"], errors="ignore"))
                 st.success("Catalog saved.")
@@ -1042,12 +1052,21 @@ def main():
             student_names2 = []
             if {"Name", "Surname"}.issubset(students_now.columns):
                 student_names2 = sorted((students_now["Name"].str.strip() + " " + students_now["Surname"].str.strip()).tolist())
-            sel_student = st.selectbox("👩‍🎓 Student", student_names2, key="add_student")
+            sel_student = st.selectbox("👩‍🎓 Student", [""] + student_names2, key="add_student")
 
-            # choose a specific copy by row#
-            books_now = books_now.assign(_idx=books_now.index.astype(int))
-            book_opts = [(int(r["_idx"]), f"{r['Book Title']} | ID:{r.get('Book ID','')} | BC:{r.get('Barcode','')} | row#{r['_idx']}") for _, r in books_now.iterrows()]
-            pick_copy = st.selectbox("📚 Book copy", book_opts, format_func=lambda x: x[1], key="add_book")
+            def _copy_label(r):
+                return f"{r['Book Title']} | ID:{r.get('Book ID','')} | BC:{r.get('Barcode','')} | row#{r['_idx']}"
+            book_opts = [(int(r["_idx"]), _copy_label(r)) for _, r in books_now.iterrows()]
+            if not book_opts:
+                st.warning("No book copies available in the catalog yet.")
+                pick_copy = None
+            else:
+                def _fmt_copy(opt):
+                    try:
+                        return opt[1]
+                    except Exception:
+                        return str(opt)
+                pick_copy = st.selectbox("📚 Book copy", book_opts, format_func=_fmt_copy, key="add_book")
 
             col_a, col_b = st.columns(2)
             d_borrow = col_a.date_input("Date Borrowed", value=datetime.now().date(), key="add_d_borrow")
@@ -1062,42 +1081,48 @@ def main():
             if st.button("💾 Save Borrow (back-capture)"):
                 if not sel_student:
                     st.error("Please choose a student.")
-                    st.stop()
-
-                copy_idx = int(pick_copy[0])
-                copy_row = books_now.loc[[copy_idx]].iloc[0]
-
-                # Enforce one active book per student (only for not returned)
-                if not returned_now:
-                    has_open, open_rows = student_has_open_borrow(logs, sel_student)
-                    if has_open:
-                        got = open_rows.iloc[0]
-                        st.error(
-                            f"❌ {sel_student} already has a book out: **{got['Book Title']}** "
-                            f"(borrowed {got['Date Borrowed']}). Return it first."
-                        )
+                elif pick_copy is None:
+                    st.error("Please choose a book copy.")
+                else:
+                    copy_idx = int(pick_copy[0]) if isinstance(pick_copy, tuple) else int(pick_copy)
+                    brow = books_now.loc[books_now["_idx"] == copy_idx]
+                    if brow.empty:
+                        st.error("Selected copy no longer exists.")
                         st.stop()
 
-                new_row = {
-                    "Student": sel_student,
-                    "Book Title": str(copy_row.get("Book Title","")).strip(),
-                    "Book ID": str(copy_row.get("Book ID","")).strip(),
-                    "Date Borrowed": _ts(d_borrow, t_borrow),
-                    "Due Date": _ts(d_due, t_due),
-                    "Returned": "Yes" if returned_now else "No",
-                    "Barcode": str(copy_row.get("Barcode","")).strip(),
-                }
-                logs2 = pd.concat([logs, pd.DataFrame([new_row])], ignore_index=True)
-                save_logs(logs2)
+                    title = brow.iloc[0]["Book Title"]
+                    book_id = brow.iloc[0]["Book ID"]
+                    barcode = brow.iloc[0]["Barcode"]
 
-                if not returned_now and "Status" in books_now.columns:
-                    real_books = load_books()
-                    if copy_idx in real_books.index:
-                        real_books.loc[copy_idx, "Status"] = "Borrowed"
-                        save_books(real_books)
+                    # One-book-per-student rule here too (if not returned_now)
+                    if not returned_now:
+                        open_for_student = logs[
+                            (logs["Student"].astype(str).str.strip() == sel_student)
+                            & (logs["Returned"].str.lower() == "no")
+                        ]
+                        if not open_for_student.empty:
+                            titles = ", ".join(sorted(open_for_student["Book Title"].astype(str).str.strip().unique().tolist()))
+                            st.error(f"❗ {sel_student} already has a book out: {titles}. Return it before borrowing another.")
+                            st.stop()
 
-                st.success("Back-captured borrow saved.")
-                st.rerun()
+                    new_row = {
+                        "Student": sel_student,
+                        "Book Title": title,
+                        "Book ID": book_id,
+                        "Date Borrowed": _ts(d_borrow, t_borrow),
+                        "Due Date": _ts(d_due, t_due),
+                        "Returned": "Yes" if returned_now else "No",
+                        "Barcode": barcode,
+                    }
+                    logs2 = pd.concat([logs, pd.DataFrame([new_row])], ignore_index=True)
+                    save_logs(logs2)
+
+                    if not returned_now and "Status" in books_now.columns:
+                        books_now.loc[books_now["_idx"] == copy_idx, "Status"] = "Borrowed"
+                        save_books(books_now)
+
+                    st.success("Back-captured borrow saved.")
+                    st.rerun()
 
         # Edit
         with st.expander("✏️ Edit an Existing Log"):
@@ -1134,7 +1159,7 @@ def main():
                     logs.loc[idx, "Book Title"] = e_book.strip()
                     if "Book ID" in logs.columns:
                         old_id = logs.loc[idx, "Book ID"]
-                        if (old_id == "" or pd.isna(old_id)):
+                        if (old_id == "" or pd.isna(old_id)) and "Book ID" in books_now.columns:
                             match = books_now.loc[books_now["Book Title"] == e_book, "Book ID"]
                             logs.loc[idx, "Book ID"] = match.iloc[0] if len(match) else ""
                     logs.loc[idx, "Barcode"] = e_barcode.strip()
@@ -1144,11 +1169,17 @@ def main():
                     save_logs(logs)
 
                     if "Status" in books_now.columns:
-                        real_books = load_books()
-                        title_mask = real_books["Book Title"].astype(str).str.strip() == e_book.strip()
-                        if e_returned == "Yes":
-                            real_books.loc[title_mask, "Status"] = "Available"
-                        save_books(real_books)
+                        if e_returned=="Yes":
+                            if e_barcode.strip():
+                                books_now.loc[books_now["Barcode"].astype(str).str.strip() == e_barcode.strip(), "Status"] = "Available"
+                            else:
+                                books_now.loc[books_now["Book Title"] == e_book, "Status"] = "Available"
+                        else:
+                            if e_barcode.strip():
+                                books_now.loc[books_now["Barcode"].astype(str).str.strip() == e_barcode.strip(), "Status"] = "Borrowed"
+                            else:
+                                books_now.loc[books_now["Book Title"] == e_book, "Status"] = "Borrowed"
+                        save_books(books_now)
 
                     st.success("Log updated.")
                     st.rerun()
@@ -1156,12 +1187,15 @@ def main():
                 if colB.button("🗑️ Delete This Log"):
                     idx = logs_sel[label == sel_label].index[0]
                     title = logs.loc[idx, "Book Title"]
+                    barcode = logs.loc[idx, "Barcode"]
                     logs = logs.drop(index=idx).reset_index(drop=True)
                     save_logs(logs)
                     if "Status" in books_now.columns:
-                        real_books = load_books()
-                        real_books.loc[real_books["Book Title"] == title, "Status"] = "Available"
-                        save_books(real_books)
+                        if barcode.strip():
+                            books_now.loc[books_now["Barcode"].astype(str).str.strip() == barcode.strip(), "Status"] = "Available"
+                        else:
+                            books_now.loc[books_now["Book Title"] == title, "Status"] = "Available"
+                        save_books(books_now)
                     st.warning("Log deleted.")
                     st.rerun()
 
