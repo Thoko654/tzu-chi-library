@@ -416,7 +416,7 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
         return logs_df, []
 
     now = datetime.now()
-    due = now + timedelta(days=14)
+    due = now + timedelta(days=30)
 
     new_rows = []
     for _, r in to_create.iterrows():
@@ -468,18 +468,18 @@ def main():
             "</div>", unsafe_allow_html=True
         )
 
-    st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Saturday Tutor Class Library System</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>📚 Tzu Chi Foundation — Tutor Class Library System</h1>", unsafe_allow_html=True)
 
     # ---------- Top metrics ----------
     total_books     = len(books)
     available_count = (books["Status"].str.lower() == "available").sum()
-    borrowed_open   = (books["Status"].str.lower() == "borrowed").sum()
+    borrowed_books   = (books["Status"].str.lower() == "borrowed").sum()
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Students", len(students))
     c2.metric("Books", int(total_books))
     c3.metric("Available", int(available_count))
-    c4.metric("Borrowed (open)", int(borrowed_open))
+    c4.metric("Borrowed (books)", int(borrowed_books))
 
     # ---------- Health check ----------
     logged_open_keys = set(logs.loc[logs["Returned"].str.lower()=="no","Copy Key"].astype(str))
@@ -1088,3 +1088,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
