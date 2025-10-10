@@ -426,8 +426,8 @@ def main():
         with open(logo_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
         st.markdown(
-            "<div style='text-align:center; margin-top:8px;'>"
-            f"<img src='data:image/png;base64,{encoded}' width='140'>"
+            "<div style='text-align:center; margin-top:10px;'>"
+            f"<img src='data:image/png;base64,{encoded}' width='150'>"
             "</div>", unsafe_allow_html=True
         )
 
@@ -1033,3 +1033,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
