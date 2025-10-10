@@ -1,9 +1,9 @@
 # library_webapp.py
-# Tzu Chi Library – Streamlit
+# Tzu Chi Library — Streamlit
 # - Multiple copies (each CSV row is a copy)
 # - One open borrow per person
 # - Scanner mode (student code + book barcode)
-# - Catalog ↔ Log smart sync (patches open rows; no blank students)
+# - Catalog ↔ Log smart sync (no blank student rows)
 # - Optional GitHub CSV sync (via st.secrets["github_store"])
 
 import os
@@ -80,6 +80,14 @@ def _ts(d: date, t: time):
 def df_append(df, row_dict):
     return pd.concat([df, pd.DataFrame([row_dict])], ignore_index=True)
 
+def _file_rowcount(path: str) -> int:
+    if not os.path.exists(path):
+        return 0
+    try:
+        return len(pd.read_csv(path, dtype=str))
+    except Exception:
+        return 0
+
 # ===============================
 # Optional GitHub sync
 # ===============================
@@ -154,24 +162,62 @@ def _gh_self_test():
         return f"GH check failed: {e}", "red"
 
 # ===============================
-# CSV bootstrap
+# CSV bootstrap + migration
 # ===============================
-def _file_rowcount(path: str) -> int:
-    if not os.path.exists(path):
-        return 0
-    try:
-        return len(pd.read_csv(path, dtype=str))
-    except Exception:
-        return 0
-
 def ensure_files():
-    # create fresh structured files if missing
+    # create modern files if missing
     if not os.path.exists(STUDENT_CSV):
         pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if not os.path.exists(BOOKS_CSV):
         pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status", "Barcode"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Barcode", "Copy Key"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
+
+    # migrate legacy root CSVs if data files are empty
+    legacy_students = os.path.join(BASE_DIR, "Student_records.csv")
+    legacy_books    = os.path.join(BASE_DIR, "Library_books.csv")
+    legacy_logs     = os.path.join(BASE_DIR, "Borrow_log.csv")
+
+    if _file_rowcount(STUDENT_CSV) == 0 and os.path.exists(legacy_students):
+        try:
+            df = pd.read_csv(legacy_students, dtype=str).fillna("")
+            df = df.rename(columns={
+                "Boy / Girl":"Gender",
+                "First Name":"Name",
+                "Last Name":"Surname",
+                "Student Code":"Code",
+                "ID":"Code"
+            })
+            for c in df.columns:
+                df[c] = df[c].astype(str).str.strip()
+            if "Code" not in df.columns: df["Code"] = ""
+            if "Gender" not in df.columns: df["Gender"] = ""
+            df.to_csv(STUDENT_CSV, index=False, encoding="utf-8")
+        except Exception as e:
+            st.warning(f"Could not migrate legacy students file: {e}")
+
+    if _file_rowcount(BOOKS_CSV) == 0 and os.path.exists(legacy_books):
+        try:
+            df = pd.read_csv(legacy_books, dtype=str).fillna("")
+            for c in df.columns:
+                df[c] = df[c].astype(str).str.strip()
+            if "Status" not in df.columns: df["Status"] = "Available"
+            df.to_csv(BOOKS_CSV, index=False, encoding="utf-8")
+        except Exception as e:
+            st.warning(f"Could not migrate legacy books file: {e}")
+
+    if _file_rowcount(LOG_CSV) == 0 and os.path.exists(legacy_logs):
+        try:
+            df = pd.read_csv(legacy_logs, dtype=str, on_bad_lines="skip").fillna("")
+            for c in df.columns:
+                df[c] = df[c].astype(str).str.strip()
+            if "Book ID" not in df.columns: df["Book ID"] = ""
+            if "Returned" not in df.columns: df["Returned"] = "No"
+            if "Barcode" not in df.columns: df["Barcode"] = ""
+            if "Copy Key" not in df.columns: df["Copy Key"] = ""
+            df.to_csv(LOG_CSV, index=False, encoding="utf-8")
+        except Exception as e:
+            st.warning(f"Could not migrate legacy logs file: {e}")
 
 # ---------- books helpers ----------
 def _normalize_barcode_headers(df: pd.DataFrame) -> pd.DataFrame:
@@ -191,7 +237,7 @@ def _normalize_barcode_headers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
-    """Make sure helper columns exist and are consistent."""
+    """Ensure helper columns exist and are consistent; NOT shown in UI."""
     df = df.copy()
     df.columns = df.columns.str.strip()
     df = _normalize_barcode_headers(df)
@@ -208,10 +254,10 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
         .fillna("Available")
     )
 
-    # stable per-row uid
+    # stable row uid
     if "_ROW_UID" not in df.columns:
         df["_ROW_UID"] = ""
-    # fill missing uids
+    # assign any missing uids with an incrementing sequence
     current_max = 0
     try:
         current_max = pd.to_numeric(df["_ROW_UID"], errors="coerce").max()
@@ -220,7 +266,7 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
     except Exception:
         current_max = 0
     need_uid = df["_ROW_UID"].astype(str).str.strip() == ""
-    n = int(need_uid.sum())
+    n = need_uid.sum()
     if n:
         new_vals = list(range(int(current_max) + 1, int(current_max) + 1 + n))
         df.loc[need_uid, "_ROW_UID"] = [str(v) for v in new_vals]
@@ -232,7 +278,7 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
         df["_ROW_UID"].astype(str)
     )
 
-    # keep rows that at least have title or barcode
+    # Keep rows with at least a title or a barcode
     if "Book Title" in df.columns:
         keep = (df["Book Title"].astype(str).str.strip() != "") | (df["Barcode"].astype(str).str.strip() != "")
         df = df[keep].copy()
@@ -261,7 +307,7 @@ def load_books():
 def load_logs():
     df = pd.read_csv(LOG_CSV, dtype=str, on_bad_lines="skip").fillna("")
     df.columns = df.columns.str.strip()
-    # normalize headers
+
     rename_map = {
         "Book Tittle": "Book Title",
         "Book Title ": "Book Title",
@@ -278,7 +324,6 @@ def load_logs():
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
     df = df.loc[:, ~df.columns.duplicated()].copy()
 
-    # required columns
     for c in ["Student","Book Title","Book ID","Date Borrowed","Due Date","Returned"]:
         if c not in df.columns:
             df[c] = ""
@@ -294,7 +339,6 @@ def load_logs():
         {"yes":"Yes","y":"Yes","true":"Yes","1":"Yes","no":"No","n":"No","false":"No","0":"No"}
     ).fillna("No")
 
-    # drop fully blank shells
     key_cols = ["Student","Book Title","Book ID","Barcode","Copy Key"]
     mask_all_blank = df[key_cols].apply(lambda s: s.astype(str).str.strip() == "").all(axis=1)
     df = df[~mask_all_blank].reset_index(drop=True)
@@ -360,22 +404,22 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
 
     for _, r in to_fix.iterrows():
         key = r["_COPY_KEY"]
-        bid = str(r.get("Book ID","")).strip()
-        bc  = str(r.get("Barcode","")).strip()
+        bid = r.get("Book ID","")
+        bc  = r.get("Barcode","")
 
-        # Try patch first (preserve Student)
+        # Try to PATCH existing open row (same book, empty copy key)
         patch_mask = (
             (logs_new["Returned"].str.lower()=="no")
             & (logs_new["Copy Key"].astype(str).str.strip() == "")
-            & (logs_new["Book ID"].astype(str).str.strip() == bid)
-            & (logs_new["Barcode"].astype(str).str.strip() == bc)
+            & (logs_new["Book ID"].astype(str).str.strip() == str(bid).strip())
+            & (logs_new["Barcode"].astype(str).str.strip() == str(bc).strip())
         )
         if patch_mask.any():
             logs_new.loc[patch_mask, "Copy Key"] = key
             patched.append(key)
             continue
 
-        # Create a new open row (Student empty) if nothing to patch
+        # Create new open log (Student = "", last resort)
         new_row = {
             "Student": "",
             "Book Title": r.get("Book Title",""),
@@ -414,6 +458,10 @@ def main():
         st.caption(f"Logs rows: **{len(logs)}**")
         status, color = _gh_self_test()
         st.markdown(f"**GitHub:** <span style='color:{color}'>{status}</span>", unsafe_allow_html=True)
+        with st.expander("Paths"):
+            st.caption(f"Students: {STUDENT_CSV}")
+            st.caption(f"Books: {BOOKS_CSV}")
+            st.caption(f"Logs: {LOG_CSV}")
 
     # (Optional) logo
     logo_path = os.path.join("assets", "chi-logo.png")
@@ -477,6 +525,7 @@ def main():
         scan_student_code = colA.text_input("Scan/enter Student Code").strip()
         scan_book_barcode = colB.text_input("Scan/enter Book Barcode").strip()
 
+        # Resolve student
         selected_student = ""
         if scan_student_code:
             hit = students.loc[students["_CODE_CANON"] == _canon(scan_student_code)]
@@ -486,6 +535,7 @@ def main():
             else:
                 st.error("Student code not found.")
 
+        # Resolve copy
         selected_copy_key = ""
         selected_copy_label = ""
         if scan_book_barcode:
@@ -501,10 +551,9 @@ def main():
 
         st.markdown("---")
 
-        # Robust student list (filters blanks so "No results" doesn't appear spuriously)
-        student_names = [(str(a).strip() + " " + str(b).strip()).strip()
-                         for a, b in zip(students["Name"], students["Surname"])]
-        student_names = sorted({s for s in student_names if s})
+        # DROPDOWNS (fix: ensure names show even if some blanks)
+        student_names = (students["Name"].fillna("").str.strip() + " " + students["Surname"].fillna("").str.strip()).str.strip()
+        student_names = sorted([s for s in student_names.tolist() if s])  # drop empties
         sel_student_dropdown = st.selectbox("👩‍🎓 Pick Student (optional if you scanned)", [""] + student_names, index=0)
 
         avail = books[books["Status"].str.lower()=="available"].copy()
@@ -641,9 +690,17 @@ def main():
 
                 c1, c2 = st.columns(2)
                 with c1:
-                    sel_student = st.selectbox("Filter by student (optional)", ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]), index=0)
+                    sel_student = st.selectbox(
+                        "Filter by student (optional)",
+                        ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
+                        index=0
+                    )
                 with c2:
-                    sel_book = st.selectbox("Filter by book (optional)", ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()), index=0)
+                    sel_book = st.selectbox(
+                        "Filter by book (optional)",
+                        ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
+                        index=0
+                    )
 
                 filt = open_df.copy()
                 if sel_student != "(All)":
@@ -709,6 +766,7 @@ def main():
                         "_ROW_UID": next_uid
                     }
                     books_now = df_append(books_now, new)
+                    # IMPORTANT: rebuild helpers and save
                     save_books(books_now)
                     st.success("Book copy added.")
                     st.rerun()
@@ -720,14 +778,15 @@ def main():
 
         if opt == "Student":
             students_now = load_students()
-            student_list = sorted((students_now["Name"] + " " + students_now["Surname"]).str.strip().tolist())
+            student_list = sorted((students_now["Name"].fillna("").str.strip() + " " + students_now["Surname"].fillna("").str.strip()).str.strip().tolist())
+            student_list = [s for s in student_list if s]
             to_delete = st.selectbox("Select student to delete", [""] + student_list)
             if st.button("Delete Student"):
                 if to_delete:
                     parts = to_delete.strip().split()
                     name_part = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
                     surname_part = parts[-1] if len(parts) > 1 else ""
-                    mask = (students_now["Name"] == name_part) & (students_now["Surname"] == surname_part)
+                    mask = (students_now["Name"].str.strip() == name_part) & (students_now["Surname"].str.strip() == surname_part)
                     students_now = students_now[~mask]
                     save_students(students_now)
                     st.success("Student deleted.")
@@ -751,6 +810,7 @@ def main():
     # ---------------- Catalog ----------------
     with tabs[5]:
         st.subheader("📘 Catalog — View & Edit Copies")
+
         books_now = load_books().copy()
         if books_now.empty:
             st.info("No books yet. Use the ➕ Add tab to add some.")
@@ -771,11 +831,13 @@ def main():
             if only_available:
                 df = df[df["Status"].str.lower().eq("available")].copy()
 
-            # editor shows only public columns
+            # ensure visible columns exist
             for c in ["Book ID", "Book Title", "Author", "Status", "Barcode"]:
                 if c not in df.columns:
                     df[c] = ""
-            df["_row_id"] = df.index  # hidden pointer
+
+            # hidden pointer to original row
+            df["_row_id"] = df.index
 
             st.caption("Tip: edit cells directly; add/remove rows with the table toolbar. Click **Save changes** to persist.")
             edited = st.data_editor(
@@ -783,7 +845,7 @@ def main():
                 num_rows="dynamic",
                 use_container_width=True,
                 column_config={
-                    "Book ID": {"help":"Optional library/internal ID"},
+                    "Book ID": {"help":"Optional library ID / internal ID"},
                     "Book Title": {"help":"Required unless Barcode present"},
                     "Author": {"help":"Optional"},
                     "Status": {"help":"Available or Borrowed"},
@@ -796,20 +858,20 @@ def main():
             if st.button("💾 Save changes"):
                 updated = books_now.copy()
 
-                # update existing rows
+                # updates to existing rows
                 to_update = edited.dropna(subset=["_row_id"]).copy()
                 to_update["_row_id"] = to_update["_row_id"].astype(int)
                 for _, r in to_update.iterrows():
                     ridx = r["_row_id"]
                     if ridx in updated.index:
-                        updated.loc[ridx, "Book ID"]   = str(r.get("Book ID","")).strip()
-                        updated.loc[ridx, "Book Title"]= str(r.get("Book Title","")).strip()
-                        updated.loc[ridx, "Author"]    = str(r.get("Author","")).strip()
-                        updated.loc[ridx, "Barcode"]   = str(r.get("Barcode","")).strip()
+                        updated.loc[ridx, "Book ID"] = str(r.get("Book ID","")).strip()
+                        updated.loc[ridx, "Book Title"] = str(r.get("Book Title","")).strip()
+                        updated.loc[ridx, "Author"] = str(r.get("Author","")).strip()
+                        updated.loc[ridx, "Barcode"] = str(r.get("Barcode","")).strip()
                         status = str(r.get("Status","")).strip().lower()
-                        updated.loc[ridx, "Status"]    = "Borrowed" if status in {"borrowed","out","issued"} else "Available"
+                        updated.loc[ridx, "Status"] = "Borrowed" if status in {"borrowed","out","issued"} else "Available"
 
-                # new rows added
+                # brand new rows (no _row_id)
                 new_rows = edited[edited["_row_id"].isna()]
                 if not new_rows.empty:
                     try:
@@ -830,6 +892,7 @@ def main():
                         if rec["Book Title"] or rec["Barcode"]:
                             updated = pd.concat([updated, pd.DataFrame([rec])], ignore_index=True)
 
+                # rebuild helpers & save
                 save_books(updated)
                 st.success("Catalog saved.")
                 st.rerun()
@@ -875,7 +938,8 @@ def main():
         with st.expander("➕ Add / Back-capture a Borrow"):
             students_now = load_students()
             books_now = load_books()
-            student_names2 = sorted((students_now["Name"].str.strip() + " " + students_now["Surname"].str.strip()).tolist())
+            student_names2 = sorted((students_now["Name"].fillna("").str.strip() + " " + students_now["Surname"].fillna("").str.strip()).str.strip().tolist())
+            student_names2 = [s for s in student_names2 if s]
             sel_student = st.selectbox("👩‍🎓 Student", [""] + student_names2, key="add_student")
 
             books_now["_label"] = (
