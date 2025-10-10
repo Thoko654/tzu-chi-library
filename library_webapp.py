@@ -3,7 +3,7 @@
 # - Multiple copies (each CSV row is a copy)
 # - One open borrow per person
 # - Scanner mode (student code + book barcode)
-# - Catalog ↔ Log smart sync (no blank student rows)
+# - Catalog ↔ Log smart sync (patches open rows; no blank students)
 # - Optional GitHub CSV sync (via st.secrets["github_store"])
 
 import os
@@ -154,7 +154,7 @@ def _gh_self_test():
         return f"GH check failed: {e}", "red"
 
 # ===============================
-# CSV bootstrap/migration
+# CSV bootstrap
 # ===============================
 def _file_rowcount(path: str) -> int:
     if not os.path.exists(path):
@@ -172,11 +172,6 @@ def ensure_files():
         pd.DataFrame(columns=["Book ID", "Book Title", "Author", "Status", "Barcode"]).to_csv(BOOKS_CSV, index=False, encoding="utf-8")
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Barcode", "Copy Key"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
-
-    # if GitHub configured and local files are empty, pull once
-    if _gh_enabled():
-        # no automatic pull here—only saving to GitHub. (Safer)
-        pass
 
 # ---------- books helpers ----------
 def _normalize_barcode_headers(df: pd.DataFrame) -> pd.DataFrame:
@@ -225,7 +220,7 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
     except Exception:
         current_max = 0
     need_uid = df["_ROW_UID"].astype(str).str.strip() == ""
-    n = need_uid.sum()
+    n = int(need_uid.sum())
     if n:
         new_vals = list(range(int(current_max) + 1, int(current_max) + 1 + n))
         df.loc[need_uid, "_ROW_UID"] = [str(v) for v in new_vals]
@@ -365,22 +360,22 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
 
     for _, r in to_fix.iterrows():
         key = r["_COPY_KEY"]
-        bid = r.get("Book ID","")
-        bc  = r.get("Barcode","")
+        bid = str(r.get("Book ID","")).strip()
+        bc  = str(r.get("Barcode","")).strip()
 
-        # 2) Try patch
+        # Try patch first (preserve Student)
         patch_mask = (
             (logs_new["Returned"].str.lower()=="no")
             & (logs_new["Copy Key"].astype(str).str.strip() == "")
-            & (logs_new["Book ID"].astype(str).str.strip() == str(bid).strip())
-            & (logs_new["Barcode"].astype(str).str.strip() == str(bc).strip())
+            & (logs_new["Book ID"].astype(str).str.strip() == bid)
+            & (logs_new["Barcode"].astype(str).str.strip() == bc)
         )
         if patch_mask.any():
             logs_new.loc[patch_mask, "Copy Key"] = key
             patched.append(key)
             continue
 
-        # 3) Create new open row (Student empty – but only if we couldn't patch)
+        # Create a new open row (Student empty) if nothing to patch
         new_row = {
             "Student": "",
             "Book Title": r.get("Book Title",""),
@@ -506,19 +501,23 @@ def main():
 
         st.markdown("---")
 
-        student_names = (students["Name"].str.strip() + " " + students["Surname"].str.strip()).tolist()
-        sel_student_dropdown = st.selectbox("👩‍🎓 Pick Student (optional if you scanned)", [""] + sorted(set(student_names)), index=0)
+        # Robust student list (filters blanks so "No results" doesn't appear spuriously)
+        student_names = [(str(a).strip() + " " + str(b).strip()).strip()
+                         for a, b in zip(students["Name"], students["Surname"])]
+        student_names = sorted({s for s in student_names if s})
+        sel_student_dropdown = st.selectbox("👩‍🎓 Pick Student (optional if you scanned)", [""] + student_names, index=0)
 
         avail = books[books["Status"].str.lower()=="available"].copy()
         if avail.empty:
             st.info("No available copies right now.")
+            sel_copy_label = ""
         else:
             avail["_label"] = (
                 avail["Book Title"].astype(str)
                 + "  [ID:" + avail.get("Book ID","").astype(str).replace("", "-", regex=False)
                 + " | BC:" + avail.get("Barcode","").astype(str).replace("", "-", regex=False) + "]"
             )
-        sel_copy_label = st.selectbox("📚 Pick Book Copy (optional if you scanned)", [""] + avail["_label"].tolist(), index=0)
+            sel_copy_label = st.selectbox("📚 Pick Book Copy (optional if you scanned)", [""] + avail["_label"].tolist(), index=0)
 
         final_student = selected_student or sel_student_dropdown
         if sel_copy_label:
@@ -1033,4 +1032,3 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
-
