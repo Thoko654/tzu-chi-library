@@ -1,62 +1,56 @@
-Code,Name,Surname,Gender
-001,Amukelani,Nuwabela,Girl
-002,Aviwe,Dlamini,Boy
-003,Bokang,Tatiso,Girl
-004,David,Motubatsi,Boy
-005,Dion(Theto),Mashanye,Boy
-006,Kabelo,Lesailana,Boy
-007,Kabelo,Seleke,Girl
-008,Kagiso,Seleke,Girl
-009,Katlego,Mampa,Boy
-0010,Lucky,Taleng,Boy
-0011,Melokuhle,Khumalo,Boy
-0012,Nomcebo,Phongolo,Girl
-0013,Onalerona,Phala,Girl
-0014,Phetogo,Motsisi,Girl
-0015,Teesetso,Moseamedi,Girl
-0016,Tshegofatso,Makhafula,Boy
-0017,Zezethu,Belekane,Girl
-0018,Pule,Visagie,Boy
-0019,Alica,Chauke,Girl
-0020,Believe,Khoza,Boy
-0021,Bohlale,Moleleki,Boy
-0022,Criselda,Ndlovu,Girl
-0023,Dimakatso,Diale,Girl
-0024,Kgothatso,Mokoena,Boy
-0025,Neo,Maphakela,Boy
-0026,Nfariseni,Mosia,Girl
-0027,Nonhlanhla,Khumalo,Girl
-0028,Ntando,Moyo,Boy
-0029,Nyiko,Koabola,Girl
-0030,Phindile,Mkhangwana,Girl
-0031,Reatlegile,Phala,Boy
-0032,Thetho,Nashanye,Girl
-0033,Asiphile,Sam,Boy
-0034,Axole,Mlambo,Girl
-0035,Bandile,Mnisi,Boy
-0036,Dimpho,Mokoena,Girl
-0037,Dineo,Mashiane,Girl
-0038,Gift,Sitoe,Boy
-0039,Junior,Sibiya,Boy
-0040,Kagiso,Notha,Boy
-0041,Karabo,Mphasha,Girl
-0042,Kith,Mahlangu,Boy
-0043,Lindeka,Gama,Boy
-0044,Nomazulu,Dube,Girl
-0045,Ompile,Pushuli,Boy
-0046,Palesa,Visagie,Girl
-0047,Philasande,Khumalo,Girl
-0048,Phiwokuhle,Mhlongo,Boy
-0049,Puleng,Thamaga,Girl
-0050,Rethabile,Makiba,Girl
-0051,Samkelo,Mahlangu,Boy
-0052,Sikelela,Zanda,Boy
-0053,Snethemba,Msiza,Boy
-0054,Thabiso,Monaheng,Boy
-0055,Tshephang,Mokumo,Boy
-0056,Tshepo,Mofokeng,Boy
-
-
-
-
-
+﻿Student ID ,Name,Surname,Gender,
+0001,Amukelani,Nuwabela,Girl,
+0002,Bokang,Tatiso,Girl,
+0003,David,Motubatsi,Boy,
+0004,Kabelo,Lesailana,Boy,
+0005,Kabelo,Seleke,Girl,
+0006,Kagiso,Seleke,Girl,
+0007,Katlego,Mampa,Boy,
+0008,Lucky,Taleng,Boy,
+0009,Melokuhle,Khumalo,Boy,
+0010,Onalerona,Phala,Girl,
+0011,Phetogo,Motsisi,Girl,
+0012,Teesetso,Moseamedi,Girl,
+0013,Tshegofatso,Makhafula,Boy,
+0014,Zezethu,Belekane,Girl,
+0015,Pule,Visagie,Boy,
+0016,Alica,Chauke,Girl,
+0017,Believe,Khoza,Boy,
+0018,Bohlale,Moleleki,Boy,
+0019,Criselda,Ndlovu,Girl,
+0020,Dimakatso,Diale,Girl,
+0021,Kgothatso,Mokoena,Boy,
+0022,Neo,Maphakela,Boy,
+0023,Nfariseni,Mosia,Girl,
+0024,Nonhlanhla,Khumalo,Girl,
+0025,Ntando,Moyo,Boy,
+0026,Nyiko,Koabola,Girl,
+0027,Phindile,Mkhangwana,Girl,
+0028,Reatlegile,Phala,Boy,
+0030,Dimpho,Mokoena,Girl,
+0031,Dineo,Mashiane,Girl,
+0032,Gift,Sitoe,Boy,
+0033,Junior,Sibiya,Boy,
+0035,Karabo,Mphasha,Girl,
+0036,Kith,Mahlangu,Boy,
+0037,Nomazulu,Dube,Girl,
+0038,Palesa,Visagie,Girl,
+0039,Philasande,Khumalo,Girl,
+0041,Puleng,Thamaga,Girl,
+0043,Samkelo,Mahlangu,Boy,
+0045,Snethemba,Msiza,Boy,
+0046,Thabiso,Monaheng,Boy,
+0047,Tshephang,Mokumo,Boy,
+0048,Tshepo,Mofokeng,Boy,
+0053,Andile Prince,Mashiyane ,Boy,
+0054,Luthando Clara,Ncube ,Girl ,
+0055,Nancy Thandeka ,Monyeki,Girl ,
+0056,Nozithelo ,Khwela ,Girl ,
+0057,Sphelele ,Sibiya ,Boy ,
+0058,Thabang ,Khethane ,Boy ,
+0059,Mazviita,Marobane ,Girl ,
+0060,Alicia Siyamthanda ,Sangweni ,Girl ,
+0061,Gift,Mashitelo ,Boy,
+0062,Phiwokuhle Cwenga ,Macwili,Boy,
+0063,Abigail ,Sibanda,Girl,     
+0064,Seipati,Lesailana,Girl ,
