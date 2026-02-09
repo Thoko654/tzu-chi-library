@@ -485,7 +485,7 @@ def learners_tab():
         key="learners_editor",
     )
 
-    if st.button("💾 Save changes"):
+    if st.button("💾 Save changes", key="btn_save_learners"):
         edited = edited.copy()
         for c in ["Code","Name","Surname","Gender"]:
             edited[c] = edited[c].astype(str).str.strip()
@@ -797,7 +797,7 @@ def main():
                 key="catalog_editor",
             )
 
-            if st.button("💾 Save changes"):
+            if st.button("💾 Save changes", key="btn_save_catalog"):
                 updated = books_now.copy()
 
                 to_update = edited.dropna(subset=["_row_id"]).copy()
@@ -965,3 +965,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
