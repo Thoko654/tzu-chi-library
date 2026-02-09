@@ -426,86 +426,103 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
     return logs_new, created, patched
 
 # ===============================
-# Learners Tab (NEW)
+# Learners Tab (Editable list only)
 # ===============================
 def learners_tab():
     st.subheader("👩‍🎓 Learners (Students)")
 
     students = load_students().copy()
+
     # Ensure columns exist
     for c in ["Code", "Name", "Surname", "Gender"]:
         if c not in students.columns:
             students[c] = ""
 
-    # Search
+    # Clean base view
+    students["Code"] = students["Code"].astype(str).str.strip()
+    students["Name"] = students["Name"].astype(str).str.strip()
+    students["Surname"] = students["Surname"].astype(str).str.strip()
+    students["Gender"] = students["Gender"].astype(str).str.strip()
+
+    # --- Permission: only admin can edit ---
+    can_edit = is_admin()
+
+    # Search (optional)
     q = st.text_input("Search (Code / Name / Surname)", "").strip().lower()
     view = students.copy()
+
     if q:
-        view = view[
+        mask = (
             view["Code"].astype(str).str.lower().str.contains(q, na=False) |
             view["Name"].astype(str).str.lower().str.contains(q, na=False) |
             view["Surname"].astype(str).str.lower().str.contains(q, na=False)
-        ]
+        )
+        view = view[mask].copy()
 
-    view = view.sort_values(["Code","Name","Surname"], kind="stable").reset_index(drop=True)
+    # Stable ordering + keep original row id for saving back correctly
+    view = view.sort_values(["Code", "Name", "Surname"], kind="stable")
+    view["_row_id"] = view.index  # original index in 'students'
+    view = view.reset_index(drop=True)
 
     st.caption(f"Total learners: {len(students)} | Showing: {len(view)}")
-    st.dataframe(view[["Code","Name","Surname","Gender"]], use_container_width=True, hide_index=True)
 
-    st.divider()
-
-    if not is_admin():
-        st.info("Only admin can add/delete learners.")
+    if not can_edit:
+        st.info("Only admin can edit learners.")
+        st.dataframe(view[["Code", "Name", "Surname", "Gender"]], use_container_width=True, hide_index=True)
         return
 
-    left, right = st.columns(2)
+    # Editable table (NO add/delete rows)
+    edited = st.data_editor(
+        view[["Code", "Name", "Surname", "Gender", "_row_id"]],
+        use_container_width=True,
+        hide_index=True,
+        num_rows="fixed",  # prevents adding/removing rows
+        column_config={
+            "_row_id": st.column_config.Column("RowID", disabled=True),
+            "Gender": st.column_config.SelectboxColumn(
+                "Gender",
+                options=["Boy", "Girl", "Other"],
+                required=True,
+            ),
+        },
+        disabled=["_row_id"],
+        key="learners_editor",
+    )
 
-    # Add learner
-    with left:
-        st.markdown("### ➕ Add learner")
-        with st.form("add_learner_form", clear_on_submit=True):
-            code = st.text_input("Student Code (unique) *")
-            name = st.text_input("First Name *")
-            surname = st.text_input("Surname *")
-            gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
-            ok = st.form_submit_button("Add")
+    # Save button
+    if st.button("💾 Save changes"):
+        edited = edited.copy()
 
-        if ok:
-            code = (code or "").strip()
-            name = (name or "").strip()
-            surname = (surname or "").strip()
+        # Basic validation
+        edited["Code"] = edited["Code"].astype(str).str.strip()
+        edited["Name"] = edited["Name"].astype(str).str.strip()
+        edited["Surname"] = edited["Surname"].astype(str).str.strip()
+        edited["Gender"] = edited["Gender"].astype(str).str.strip()
 
-            if not code or not name or not surname:
-                st.error("Code, Name and Surname are required.")
-            elif (students["Code"].astype(str).str.strip().str.lower() == code.lower()).any():
-                st.error("That student code already exists.")
-            else:
-                new_row = {"Code": code, "Name": name, "Surname": surname, "Gender": gender}
-                updated = pd.concat([students.drop(columns=["_CODE_CANON"], errors="ignore"), pd.DataFrame([new_row])], ignore_index=True)
-                save_students(updated)
-                st.success(f"Added: {code} - {name} {surname}")
-                st.rerun()
-
-    # Delete learner (by Code)
-    with right:
-        st.markdown("### 🗑️ Delete learner (by Code)")
-        options = students["Code"].astype(str).str.strip()
-        options = [c for c in sorted(options.unique().tolist()) if c]
-
-        if not options:
-            st.warning("No learners available to delete.")
+        # Required fields
+        if (edited["Code"] == "").any() or (edited["Name"] == "").any() or (edited["Surname"] == "").any():
+            st.error("Code, Name, Surname cannot be blank.")
             return
 
-        pick = st.selectbox("Select Student Code", options)
-        confirm = st.checkbox("I confirm deletion (cannot undo)")
+        # Unique code check (case-insensitive)
+        canon = edited["Code"].str.lower()
+        if canon.duplicated().any():
+            st.error("Duplicate student codes found. Codes must be unique.")
+            return
 
-        if st.button("Delete", disabled=not confirm):
-            updated = students[students["Code"].astype(str).str.strip().str.lower() != pick.strip().lower()].copy()
-            # Drop helper column before saving
-            updated = updated.drop(columns=["_CODE_CANON"], errors="ignore")
-            save_students(updated)
-            st.success(f"Deleted student code: {pick}")
-            st.rerun()
+        # Write edits back to the original students DF using _row_id
+        for _, r in edited.iterrows():
+            rid = int(r["_row_id"])
+            students.loc[rid, "Code"] = r["Code"]
+            students.loc[rid, "Name"] = r["Name"]
+            students.loc[rid, "Surname"] = r["Surname"]
+            students.loc[rid, "Gender"] = r["Gender"]
+
+        # Save
+        students = students.drop(columns=["_CODE_CANON"], errors="ignore")
+        save_students(students)
+        st.success("Learners updated successfully ✅")
+        st.rerun()
 
 # ===============================
 # Main App
@@ -1010,3 +1027,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
