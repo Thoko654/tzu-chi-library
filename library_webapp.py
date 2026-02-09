@@ -505,17 +505,7 @@ def main():
                 st.info("Nothing to sync — all borrowed copies already have open logs.")
 
     # Tabs
-    tabs = st.tabs([
-        "📖 Borrow",
-        "📦 Return",
-        "📋 Borrowed now",
-        "➕ Add",
-        "🗑️ Delete",
-        "📘 Catalog",
-        "📜 Logs",
-        "📈 Analytics",
-    ])
-
+    tabs = st.tabs(["Borrow", "Return", "Borrowed now", "Learners", "Add", "Delete", "Catalog", "Logs", "Analytics"])
     # ---------------- Borrow ----------------
     with tabs[0]:
         st.subheader("Borrow a Book")
@@ -718,8 +708,142 @@ def main():
                 st.dataframe(filt[show_cols].style.apply(_style, axis=1), use_container_width=True)
                 st.download_button("⬇️ Download current borrowers (CSV)", filt[show_cols].to_csv(index=False), "borrowed_now.csv", "text/csv")
 
+import streamlit as st
+import pandas as pd
+
+# -----------------------
+# Helpers
+# -----------------------
+with tabs[3]:
+def is_admin():
+    return st.session_state.get("username", "").lower() == "admin" or \
+           st.session_state.get("role", "").lower() == "admin"
+
+
+def normalize_students(df):
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["student_code", "name", "grade"])
+
+    rename_map = {}
+    for c in df.columns:
+        lc = c.lower()
+        if lc in ["student code", "student_id", "studentid", "code"]:
+            rename_map[c] = "student_code"
+        elif lc in ["name", "student name"]:
+            rename_map[c] = "name"
+        elif lc in ["grade", "class"]:
+            rename_map[c] = "grade"
+
+    df = df.rename(columns=rename_map)
+
+    for col in ["student_code", "name", "grade"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    df["student_code"] = df["student_code"].astype(str).str.strip()
+    df["name"] = df["name"].astype(str).str.strip()
+    df["grade"] = df["grade"].astype(str).str.strip()
+
+    return df
+
+
+# -----------------------
+# Learners Tab
+# -----------------------
+
+def learners_tab():
+    st.subheader("Learners List")
+
+    students = normalize_students(load_students())
+
+    # 🔍 Search & filter
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        search = st.text_input("Search by name or student code")
+
+    with col2:
+        grade_filter = st.selectbox(
+            "Filter by grade",
+            ["All"] + sorted(students["grade"].unique().tolist())
+        )
+
+    view = students.copy()
+
+    if search:
+        s = search.lower()
+        view = view[
+            view["student_code"].str.lower().str.contains(s, na=False) |
+            view["name"].str.lower().str.contains(s, na=False)
+        ]
+
+    if grade_filter != "All":
+        view = view[view["grade"] == grade_filter]
+
+    st.caption(f"Total learners: {len(students)}")
+    st.dataframe(view, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # 🔒 Admin only actions
+    if not is_admin():
+        st.info("Only admin users can add or delete learners.")
+        return
+
+    left, right = st.columns(2)
+
+    # ➕ Add learner
+    with left:
+        st.markdown("### ➕ Add learner")
+
+        with st.form("add_learner", clear_on_submit=True):
+            code = st.text_input("Student Code")
+            name = st.text_input("Name")
+            grade = st.selectbox("Grade", ["5", "6", "7", "8"])
+            submit = st.form_submit_button("Add learner")
+
+        if submit:
+            if not code or not name:
+                st.error("Student Code and Name are required.")
+            elif (students["student_code"].str.lower() == code.lower()).any():
+                st.error("Student Code already exists.")
+            else:
+                new_row = {
+                    "student_code": code.strip(),
+                    "name": name.strip(),
+                    "grade": grade
+                }
+                updated = pd.concat(
+                    [students, pd.DataFrame([new_row])],
+                    ignore_index=True
+                )
+                save_students(updated)
+                st.success(f"Learner {name} added.")
+                st.rerun()
+
+    # 🗑️ Delete learner
+    with right:
+        st.markdown("### 🗑️ Delete learner")
+
+        options = students.apply(
+            lambda r: f"{r['student_code']} | {r['name']} | Grade {r['grade']}",
+            axis=1
+        ).tolist()
+
+        selected = st.selectbox("Select learner", options)
+        confirm = st.checkbox("I confirm deletion")
+
+        if st.button("Delete learner", disabled=not confirm):
+            code_to_delete = selected.split("|")[0].strip()
+            updated = students[
+                students["student_code"].str.lower() != code_to_delete.lower()
+            ]
+            save_students(updated)
+            st.success("Learner deleted.")
+            st.rerun()
+
     # ---------------- Add ----------------
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("➕ Add Student or Book Copy")
         opt = st.radio("Add:", ["Student", "Book copy"], horizontal=True)
 
@@ -772,7 +896,7 @@ def main():
                     st.rerun()
 
     # ---------------- Delete ----------------
-    with tabs[4]:
+    with tabs[5]:
         st.subheader("🗑️ Delete Student or Book Copy")
         opt = st.radio("Delete:", ["Student", "Book copy"], horizontal=True)
 
@@ -808,7 +932,7 @@ def main():
                     st.rerun()
 
     # ---------------- Catalog ----------------
-    with tabs[5]:
+    with tabs[6]:
         st.subheader("📘 Catalog — View & Edit Copies")
 
         books_now = load_books().copy()
@@ -898,7 +1022,7 @@ def main():
                 st.rerun()
 
     # ---------------- Logs ----------------
-    with tabs[6]:
+    with tabs[7]:
         st.subheader("📜 Borrow Log")
 
         if st.button("🛠 Clean headers/unnamed"):
@@ -1048,7 +1172,7 @@ def main():
                     st.rerun()
 
     # ---------------- Analytics ----------------
-    with tabs[7]:
+    with tabs[8]:
         st.subheader("📈 Library Analytics Dashboard")
         logs_a = load_logs()
         if logs_a.empty:
@@ -1096,3 +1220,4 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
