@@ -56,6 +56,9 @@ def login_form():
         else:
             st.error("❌ Invalid credentials")
 
+def is_admin() -> bool:
+    return st.session_state.get("username", "").strip().lower() == "admin"
+
 # ===============================
 # Helpers
 # ===============================
@@ -165,7 +168,6 @@ def _gh_self_test():
 # CSV bootstrap + migration
 # ===============================
 def ensure_files():
-    # create modern files if missing
     if not os.path.exists(STUDENT_CSV):
         pd.DataFrame(columns=["Code", "Name", "Surname", "Gender"]).to_csv(STUDENT_CSV, index=False, encoding="utf-8")
     if not os.path.exists(BOOKS_CSV):
@@ -173,7 +175,6 @@ def ensure_files():
     if not os.path.exists(LOG_CSV):
         pd.DataFrame(columns=["Student", "Book Title", "Book ID", "Date Borrowed", "Due Date", "Returned", "Barcode", "Copy Key"]).to_csv(LOG_CSV, index=False, encoding="utf-8")
 
-    # migrate legacy root CSVs if data files are empty
     legacy_students = os.path.join(BASE_DIR, "Student_records.csv")
     legacy_books    = os.path.join(BASE_DIR, "Library_books.csv")
     legacy_logs     = os.path.join(BASE_DIR, "Borrow_log.csv")
@@ -237,7 +238,6 @@ def _normalize_barcode_headers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
-    """Ensure helper columns exist and are consistent; NOT shown in UI."""
     df = df.copy()
     df.columns = df.columns.str.strip()
     df = _normalize_barcode_headers(df)
@@ -254,10 +254,9 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
         .fillna("Available")
     )
 
-    # stable row uid
     if "_ROW_UID" not in df.columns:
         df["_ROW_UID"] = ""
-    # assign any missing uids with an incrementing sequence
+
     current_max = 0
     try:
         current_max = pd.to_numeric(df["_ROW_UID"], errors="coerce").max()
@@ -265,6 +264,7 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
             current_max = 0
     except Exception:
         current_max = 0
+
     need_uid = df["_ROW_UID"].astype(str).str.strip() == ""
     n = need_uid.sum()
     if n:
@@ -278,7 +278,6 @@ def _apply_book_helpers(df: pd.DataFrame) -> pd.DataFrame:
         df["_ROW_UID"].astype(str)
     )
 
-    # Keep rows with at least a title or a barcode
     if "Book Title" in df.columns:
         keep = (df["Book Title"].astype(str).str.strip() != "") | (df["Barcode"].astype(str).str.strip() != "")
         df = df[keep].copy()
@@ -292,10 +291,12 @@ def load_students():
     df = pd.read_csv(STUDENT_CSV, dtype=str).fillna("")
     df.columns = df.columns.str.strip()
     df = df.rename(columns={"Boy / Girl":"Gender","First Name":"Name","Last Name":"Surname","Student Code":"Code","ID":"Code"})
+
     if "Code" not in df.columns:
         df["Code"] = ""
     for c in df.columns:
         df[c] = df[c].astype(str).str.strip()
+
     df["_CODE_CANON"] = df["Code"].map(_canon)
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
     return df
@@ -380,15 +381,6 @@ def save_books(df):
 # Catalog ↔ Log smart sync
 # ===============================
 def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
-    """
-    Fix copies that are Borrowed in Catalog but have no open log.
-    IMPORTANT: Do NOT create an empty-student row if we can PATCH an existing open row.
-    Strategy:
-      1) For each Borrowed copy, see if any open log has that exact Copy Key. If yes → ok.
-      2) If not, try to find an open log with SAME Book ID + Barcode but empty Copy Key.
-         If found → PATCH that log's Copy Key (preserves Student name).
-      3) If nothing to patch → create a new open row (Student="").
-    """
     books_borrowed = books_df.loc[books_df["Status"].str.lower()=="borrowed", ["Book Title","Book ID","Barcode","_COPY_KEY"]].copy()
     open_logs = logs_df[logs_df["Returned"].str.lower()=="no"].copy()
     open_keys = set(open_logs["Copy Key"].astype(str).str.strip())
@@ -407,7 +399,6 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
         bid = r.get("Book ID","")
         bc  = r.get("Barcode","")
 
-        # Try to PATCH existing open row (same book, empty copy key)
         patch_mask = (
             (logs_new["Returned"].str.lower()=="no")
             & (logs_new["Copy Key"].astype(str).str.strip() == "")
@@ -419,7 +410,6 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
             patched.append(key)
             continue
 
-        # Create new open log (Student = "", last resort)
         new_row = {
             "Student": "",
             "Book Title": r.get("Book Title",""),
@@ -436,6 +426,88 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
     return logs_new, created, patched
 
 # ===============================
+# Learners Tab (NEW)
+# ===============================
+def learners_tab():
+    st.subheader("👩‍🎓 Learners (Students)")
+
+    students = load_students().copy()
+    # Ensure columns exist
+    for c in ["Code", "Name", "Surname", "Gender"]:
+        if c not in students.columns:
+            students[c] = ""
+
+    # Search
+    q = st.text_input("Search (Code / Name / Surname)", "").strip().lower()
+    view = students.copy()
+    if q:
+        view = view[
+            view["Code"].astype(str).str.lower().str.contains(q, na=False) |
+            view["Name"].astype(str).str.lower().str.contains(q, na=False) |
+            view["Surname"].astype(str).str.lower().str.contains(q, na=False)
+        ]
+
+    view = view.sort_values(["Code","Name","Surname"], kind="stable").reset_index(drop=True)
+
+    st.caption(f"Total learners: {len(students)} | Showing: {len(view)}")
+    st.dataframe(view[["Code","Name","Surname","Gender"]], use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    if not is_admin():
+        st.info("Only admin can add/delete learners.")
+        return
+
+    left, right = st.columns(2)
+
+    # Add learner
+    with left:
+        st.markdown("### ➕ Add learner")
+        with st.form("add_learner_form", clear_on_submit=True):
+            code = st.text_input("Student Code (unique) *")
+            name = st.text_input("First Name *")
+            surname = st.text_input("Surname *")
+            gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
+            ok = st.form_submit_button("Add")
+
+        if ok:
+            code = (code or "").strip()
+            name = (name or "").strip()
+            surname = (surname or "").strip()
+
+            if not code or not name or not surname:
+                st.error("Code, Name and Surname are required.")
+            elif (students["Code"].astype(str).str.strip().str.lower() == code.lower()).any():
+                st.error("That student code already exists.")
+            else:
+                new_row = {"Code": code, "Name": name, "Surname": surname, "Gender": gender}
+                updated = pd.concat([students.drop(columns=["_CODE_CANON"], errors="ignore"), pd.DataFrame([new_row])], ignore_index=True)
+                save_students(updated)
+                st.success(f"Added: {code} - {name} {surname}")
+                st.rerun()
+
+    # Delete learner (by Code)
+    with right:
+        st.markdown("### 🗑️ Delete learner (by Code)")
+        options = students["Code"].astype(str).str.strip()
+        options = [c for c in sorted(options.unique().tolist()) if c]
+
+        if not options:
+            st.warning("No learners available to delete.")
+            return
+
+        pick = st.selectbox("Select Student Code", options)
+        confirm = st.checkbox("I confirm deletion (cannot undo)")
+
+        if st.button("Delete", disabled=not confirm):
+            updated = students[students["Code"].astype(str).str.strip().str.lower() != pick.strip().lower()].copy()
+            # Drop helper column before saving
+            updated = updated.drop(columns=["_CODE_CANON"], errors="ignore")
+            save_students(updated)
+            st.success(f"Deleted student code: {pick}")
+            st.rerun()
+
+# ===============================
 # Main App
 # ===============================
 def main():
@@ -450,20 +522,23 @@ def main():
         if st.button("🚪 Logout"):
             st.session_state.clear()
             st.rerun()
+
         st.markdown("### 🧪 Data health")
         storage = "GitHub + Local CSV" if _gh_enabled() else "Local CSV"
         st.caption(f"Storage: **{storage}**")
         st.caption(f"Students rows: **{len(students)}**")
         st.caption(f"Books rows: **{len(books)}**")
         st.caption(f"Logs rows: **{len(logs)}**")
+
         status, color = _gh_self_test()
         st.markdown(f"**GitHub:** <span style='color:{color}'>{status}</span>", unsafe_allow_html=True)
+
         with st.expander("Paths"):
             st.caption(f"Students: {STUDENT_CSV}")
             st.caption(f"Books: {BOOKS_CSV}")
             st.caption(f"Logs: {LOG_CSV}")
 
-    # (Optional) logo
+    # Optional logo
     logo_path = os.path.join("assets", "chi-logo.png")
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as f:
@@ -506,6 +581,7 @@ def main():
 
     # Tabs
     tabs = st.tabs(["Borrow", "Return", "Borrowed now", "Learners", "Add", "Delete", "Catalog", "Logs", "Analytics"])
+
     # ---------------- Borrow ----------------
     with tabs[0]:
         st.subheader("Borrow a Book")
@@ -515,7 +591,6 @@ def main():
         scan_student_code = colA.text_input("Scan/enter Student Code").strip()
         scan_book_barcode = colB.text_input("Scan/enter Book Barcode").strip()
 
-        # Resolve student
         selected_student = ""
         if scan_student_code:
             hit = students.loc[students["_CODE_CANON"] == _canon(scan_student_code)]
@@ -525,7 +600,6 @@ def main():
             else:
                 st.error("Student code not found.")
 
-        # Resolve copy
         selected_copy_key = ""
         selected_copy_label = ""
         if scan_book_barcode:
@@ -541,9 +615,8 @@ def main():
 
         st.markdown("---")
 
-        # DROPDOWNS (fix: ensure names show even if some blanks)
         student_names = (students["Name"].fillna("").str.strip() + " " + students["Surname"].fillna("").str.strip()).str.strip()
-        student_names = sorted([s for s in student_names.tolist() if s])  # drop empties
+        student_names = sorted([s for s in student_names.tolist() if s])
         sel_student_dropdown = st.selectbox("👩‍🎓 Pick Student (optional if you scanned)", [""] + student_names, index=0)
 
         avail = books[books["Status"].str.lower()=="available"].copy()
@@ -559,9 +632,8 @@ def main():
             sel_copy_label = st.selectbox("📚 Pick Book Copy (optional if you scanned)", [""] + avail["_label"].tolist(), index=0)
 
         final_student = selected_student or sel_student_dropdown
-        if sel_copy_label:
-            if sel_copy_label in avail["_label"].values:
-                selected_copy_key = avail.loc[avail["_label"] == sel_copy_label, "_COPY_KEY"].iloc[0]
+        if sel_copy_label and not avail.empty and sel_copy_label in avail["_label"].values:
+            selected_copy_key = avail.loc[avail["_label"] == sel_copy_label, "_COPY_KEY"].iloc[0]
 
         days = st.slider("Borrow Days", 1, 30, 14)
         allow_override = st.checkbox("Allow borrow even if copy is marked Borrowed (back-capture)")
@@ -570,8 +642,8 @@ def main():
             if not final_student or not selected_copy_key:
                 st.error("Please provide both a student and a book copy.")
             else:
-                # One open borrow per student
-                has_open = logs[(logs["Student"] == final_student) & (logs["Returned"].str.lower() == "no")]
+                logs_latest = load_logs()
+                has_open = logs_latest[(logs_latest["Student"] == final_student) & (logs_latest["Returned"].str.lower() == "no")]
                 if not has_open.empty:
                     st.error(f"🚫 {final_student} already has a book out. Return it first.")
                 else:
@@ -590,7 +662,6 @@ def main():
                     barcode    = row.iloc[0].get("Barcode","")
                     copy_key   = row.iloc[0]["_COPY_KEY"]
 
-                    logs_latest = load_logs()
                     new_row = {
                         "Student": final_student,
                         "Book Title": book_title,
@@ -613,12 +684,13 @@ def main():
     # ---------------- Return ----------------
     with tabs[1]:
         st.subheader("Return a Book")
-        logs = load_logs()
-        if logs.empty or "Returned" not in logs.columns:
+
+        logs_now = load_logs()
+        if logs_now.empty:
             st.info("No books currently borrowed.")
         else:
             barcode_return = st.text_input("Scan/enter Book Barcode (optional)").strip()
-            open_logs_view = logs[logs["Returned"].str.lower() == "no"].copy()
+            open_logs_view = logs_now[logs_now["Returned"].str.lower() == "no"].copy()
 
             hits = pd.DataFrame()
             if barcode_return:
@@ -628,37 +700,38 @@ def main():
                     st.success(f"Matched: {hits.iloc[0]['Book Title']}")
 
             if open_logs_view.empty:
-                st.info("No books currently borrowed.")
+                st.success("✅ No books currently out.")
             else:
                 open_logs_view["Label"] = (
                     open_logs_view["Student"] + " | " +
                     open_logs_view["Book Title"] + " | " +
                     open_logs_view["Date Borrowed"]
                 )
+
                 default_idx = 0
                 if not hits.empty:
                     target = hits.iloc[0]["Label"]
-                    try:
+                    if target in open_logs_view["Label"].tolist():
                         default_idx = open_logs_view["Label"].tolist().index(target)
-                    except Exception:
-                        default_idx = 0
 
                 selected_return = st.selectbox("Choose to Return", open_logs_view["Label"], index=default_idx)
+
                 if st.button("📦 Mark as Returned"):
                     row = open_logs_view[open_logs_view["Label"] == selected_return].iloc[0]
                     mask = (
-                        (logs["Student"] == row["Student"]) &
-                        (logs["Book Title"] == row["Book Title"]) &
-                        (logs["Date Borrowed"] == row["Date Borrowed"])
+                        (logs_now["Student"] == row["Student"]) &
+                        (logs_now["Book Title"] == row["Book Title"]) &
+                        (logs_now["Date Borrowed"] == row["Date Borrowed"])
                     )
-                    logs.loc[mask, "Returned"] = "Yes"
-                    save_logs(logs)
+                    logs_now.loc[mask, "Returned"] = "Yes"
+                    save_logs(logs_now)
 
                     copy_key = row.get("Copy Key","")
                     if copy_key:
-                        books = load_books()
-                        books.loc[books["_COPY_KEY"] == copy_key, "Status"] = "Available"
-                        save_books(books)
+                        books_now = load_books()
+                        books_now.loc[books_now["_COPY_KEY"] == copy_key, "Status"] = "Available"
+                        save_books(books_now)
+
                     st.success(f"Returned: {row['Book Title']} from {row['Student']}")
                     st.rerun()
 
@@ -666,181 +739,30 @@ def main():
     with tabs[2]:
         st.subheader("📋 Borrowed now (not returned)")
         logs_live = load_logs()
-        if logs_live.empty or "Returned" not in logs_live.columns:
-            st.info("No borrow records yet.")
+        open_df = logs_live[logs_live["Returned"].str.lower() == "no"].copy()
+
+        if open_df.empty:
+            st.success("✅ No books currently out.")
         else:
-            open_df = logs_live[logs_live["Returned"].str.lower() == "no"].copy()
-            if open_df.empty:
-                st.success("✅ No books currently out.")
-            else:
-                show_cols = ["Student","Book Title","Book ID","Barcode","Date Borrowed","Due Date"]
-                for c in show_cols:
-                    if c not in open_df.columns:
-                        open_df[c] = ""
+            show_cols = ["Student","Book Title","Book ID","Barcode","Date Borrowed","Due Date"]
+            for c in show_cols:
+                if c not in open_df.columns:
+                    open_df[c] = ""
 
-                c1, c2 = st.columns(2)
-                with c1:
-                    sel_student = st.selectbox(
-                        "Filter by student (optional)",
-                        ["(All)"] + sorted([s for s in open_df["Student"].astype(str).str.strip().unique() if s]),
-                        index=0
-                    )
-                with c2:
-                    sel_book = st.selectbox(
-                        "Filter by book (optional)",
-                        ["(All)"] + sorted(open_df["Book Title"].astype(str).str.strip().unique().tolist()),
-                        index=0
-                    )
+            now_ = datetime.now()
+            open_df["Due Date"] = pd.to_datetime(open_df["Due Date"], errors="coerce")
 
-                filt = open_df.copy()
-                if sel_student != "(All)":
-                    filt = filt[filt["Student"].astype(str).str.strip() == sel_student]
-                if sel_book != "(All)":
-                    filt = filt[filt["Book Title"].astype(str).str.strip() == sel_book]
+            def _style(row):
+                if pd.notna(row["Due Date"]) and row["Due Date"] < now_:
+                    return ['background-color:#ffefef'] * len(row)
+                return [''] * len(row)
 
-                now_ = datetime.now()
-                filt["Due Date"] = pd.to_datetime(filt["Due Date"], errors="coerce")
-                def _style(row):
-                    if pd.notna(row["Due Date"]) and row["Due Date"] < now_:
-                        return ['background-color:#ffefef'] * len(row)
-                    return [''] * len(row)
+            st.dataframe(open_df[show_cols].style.apply(_style, axis=1), use_container_width=True)
+            st.download_button("⬇️ Download current borrowers (CSV)", open_df[show_cols].to_csv(index=False), "borrowed_now.csv", "text/csv")
 
-                st.dataframe(filt[show_cols].style.apply(_style, axis=1), use_container_width=True)
-                st.download_button("⬇️ Download current borrowers (CSV)", filt[show_cols].to_csv(index=False), "borrowed_now.csv", "text/csv")
-
-import streamlit as st
-import pandas as pd
-
-# -----------------------
-# Helpers
-# -----------------------
-with tabs[3]:
-def is_admin():
-    return st.session_state.get("username", "").lower() == "admin" or \
-           st.session_state.get("role", "").lower() == "admin"
-
-
-def normalize_students(df):
-    if df is None or df.empty:
-        return pd.DataFrame(columns=["student_code", "name", "grade"])
-
-    rename_map = {}
-    for c in df.columns:
-        lc = c.lower()
-        if lc in ["student code", "student_id", "studentid", "code"]:
-            rename_map[c] = "student_code"
-        elif lc in ["name", "student name"]:
-            rename_map[c] = "name"
-        elif lc in ["grade", "class"]:
-            rename_map[c] = "grade"
-
-    df = df.rename(columns=rename_map)
-
-    for col in ["student_code", "name", "grade"]:
-        if col not in df.columns:
-            df[col] = ""
-
-    df["student_code"] = df["student_code"].astype(str).str.strip()
-    df["name"] = df["name"].astype(str).str.strip()
-    df["grade"] = df["grade"].astype(str).str.strip()
-
-    return df
-
-
-# -----------------------
-# Learners Tab
-# -----------------------
-
-def learners_tab():
-    st.subheader("Learners List")
-
-    students = normalize_students(load_students())
-
-    # 🔍 Search & filter
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        search = st.text_input("Search by name or student code")
-
-    with col2:
-        grade_filter = st.selectbox(
-            "Filter by grade",
-            ["All"] + sorted(students["grade"].unique().tolist())
-        )
-
-    view = students.copy()
-
-    if search:
-        s = search.lower()
-        view = view[
-            view["student_code"].str.lower().str.contains(s, na=False) |
-            view["name"].str.lower().str.contains(s, na=False)
-        ]
-
-    if grade_filter != "All":
-        view = view[view["grade"] == grade_filter]
-
-    st.caption(f"Total learners: {len(students)}")
-    st.dataframe(view, use_container_width=True, hide_index=True)
-
-    st.divider()
-
-    # 🔒 Admin only actions
-    if not is_admin():
-        st.info("Only admin users can add or delete learners.")
-        return
-
-    left, right = st.columns(2)
-
-    # ➕ Add learner
-    with left:
-        st.markdown("### ➕ Add learner")
-
-        with st.form("add_learner", clear_on_submit=True):
-            code = st.text_input("Student Code")
-            name = st.text_input("Name")
-            grade = st.selectbox("Grade", ["5", "6", "7", "8"])
-            submit = st.form_submit_button("Add learner")
-
-        if submit:
-            if not code or not name:
-                st.error("Student Code and Name are required.")
-            elif (students["student_code"].str.lower() == code.lower()).any():
-                st.error("Student Code already exists.")
-            else:
-                new_row = {
-                    "student_code": code.strip(),
-                    "name": name.strip(),
-                    "grade": grade
-                }
-                updated = pd.concat(
-                    [students, pd.DataFrame([new_row])],
-                    ignore_index=True
-                )
-                save_students(updated)
-                st.success(f"Learner {name} added.")
-                st.rerun()
-
-    # 🗑️ Delete learner
-    with right:
-        st.markdown("### 🗑️ Delete learner")
-
-        options = students.apply(
-            lambda r: f"{r['student_code']} | {r['name']} | Grade {r['grade']}",
-            axis=1
-        ).tolist()
-
-        selected = st.selectbox("Select learner", options)
-        confirm = st.checkbox("I confirm deletion")
-
-        if st.button("Delete learner", disabled=not confirm):
-            code_to_delete = selected.split("|")[0].strip()
-            updated = students[
-                students["student_code"].str.lower() != code_to_delete.lower()
-            ]
-            save_students(updated)
-            st.success("Learner deleted.")
-            st.rerun()
+    # ---------------- Learners (NEW) ----------------
+    with tabs[3]:
+        learners_tab()
 
     # ---------------- Add ----------------
     with tabs[4]:
@@ -853,16 +775,23 @@ def learners_tab():
             surname = st.text_input("Surname")
             gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
             if st.button("Add Student"):
-                students_now = load_students()
-                students_now = df_append(students_now, {
-                    "Code": (code or "").strip(),
-                    "Name": (name or "").strip(),
-                    "Surname": (surname or "").strip(),
-                    "Gender": gender
-                })
-                save_students(students_now)
-                st.success("Student added.")
-                st.rerun()
+                if not is_admin():
+                    st.error("Only admin can add students.")
+                else:
+                    students_now = load_students()
+                    if (students_now["Code"].astype(str).str.strip().str.lower() == (code or "").strip().lower()).any():
+                        st.error("Student code already exists.")
+                    else:
+                        students_now = df_append(students_now.drop(columns=["_CODE_CANON"], errors="ignore"), {
+                            "Code": (code or "").strip(),
+                            "Name": (name or "").strip(),
+                            "Surname": (surname or "").strip(),
+                            "Gender": gender
+                        })
+                        save_students(students_now)
+                        st.success("Student added.")
+                        st.rerun()
+
         else:
             title = st.text_input("Book Title")
             author = st.text_input("Author")
@@ -873,7 +802,6 @@ def learners_tab():
                     st.error("Please enter at least a Book Title or a Barcode.")
                 else:
                     books_now = load_books()
-                    # allocate a new stable row uid
                     try:
                         current_max = pd.to_numeric(books_now["_ROW_UID"], errors="coerce").max()
                         if pd.isna(current_max): current_max = 0
@@ -890,7 +818,6 @@ def learners_tab():
                         "_ROW_UID": next_uid
                     }
                     books_now = df_append(books_now, new)
-                    # IMPORTANT: rebuild helpers and save
                     save_books(books_now)
                     st.success("Book copy added.")
                     st.rerun()
@@ -901,20 +828,20 @@ def learners_tab():
         opt = st.radio("Delete:", ["Student", "Book copy"], horizontal=True)
 
         if opt == "Student":
-            students_now = load_students()
-            student_list = sorted((students_now["Name"].fillna("").str.strip() + " " + students_now["Surname"].fillna("").str.strip()).str.strip().tolist())
-            student_list = [s for s in student_list if s]
-            to_delete = st.selectbox("Select student to delete", [""] + student_list)
-            if st.button("Delete Student"):
-                if to_delete:
-                    parts = to_delete.strip().split()
-                    name_part = " ".join(parts[:-1]) if len(parts) > 1 else parts[0]
-                    surname_part = parts[-1] if len(parts) > 1 else ""
-                    mask = (students_now["Name"].str.strip() == name_part) & (students_now["Surname"].str.strip() == surname_part)
-                    students_now = students_now[~mask]
+            if not is_admin():
+                st.info("Only admin can delete students.")
+            else:
+                students_now = load_students()
+                codes = sorted([c for c in students_now["Code"].astype(str).str.strip().unique().tolist() if c])
+                to_delete = st.selectbox("Select student code to delete", [""] + codes)
+                confirm = st.checkbox("I confirm deletion")
+                if st.button("Delete Student", disabled=not (to_delete and confirm)):
+                    students_now = students_now[students_now["Code"].astype(str).str.strip().str.lower() != to_delete.strip().lower()]
+                    students_now = students_now.drop(columns=["_CODE_CANON"], errors="ignore")
                     save_students(students_now)
                     st.success("Student deleted.")
                     st.rerun()
+
         else:
             books_now = load_books()
             books_now["_label"] = (
@@ -934,8 +861,8 @@ def learners_tab():
     # ---------------- Catalog ----------------
     with tabs[6]:
         st.subheader("📘 Catalog — View & Edit Copies")
-
         books_now = load_books().copy()
+
         if books_now.empty:
             st.info("No books yet. Use the ➕ Add tab to add some.")
         else:
@@ -952,39 +879,30 @@ def learners_tab():
                     | df.get("Book ID", "").str.lower().str.contains(q, na=False)
                     | df.get("Barcode", "").str.lower().str.contains(q, na=False)
                 ].copy()
+
             if only_available:
                 df = df[df["Status"].str.lower().eq("available")].copy()
 
-            # ensure visible columns exist
             for c in ["Book ID", "Book Title", "Author", "Status", "Barcode"]:
                 if c not in df.columns:
                     df[c] = ""
 
-            # hidden pointer to original row
             df["_row_id"] = df.index
 
-            st.caption("Tip: edit cells directly; add/remove rows with the table toolbar. Click **Save changes** to persist.")
             edited = st.data_editor(
                 df[["Book ID","Book Title","Author","Status","Barcode","_row_id"]],
                 num_rows="dynamic",
                 use_container_width=True,
-                column_config={
-                    "Book ID": {"help":"Optional library ID / internal ID"},
-                    "Book Title": {"help":"Required unless Barcode present"},
-                    "Author": {"help":"Optional"},
-                    "Status": {"help":"Available or Borrowed"},
-                    "Barcode": {"help":"Scanner barcode / ISBN"},
-                    "_row_id": {"hidden": True},
-                },
+                column_config={"_row_id": {"hidden": True}},
                 key="catalog_editor",
             )
 
             if st.button("💾 Save changes"):
                 updated = books_now.copy()
 
-                # updates to existing rows
                 to_update = edited.dropna(subset=["_row_id"]).copy()
                 to_update["_row_id"] = to_update["_row_id"].astype(int)
+
                 for _, r in to_update.iterrows():
                     ridx = r["_row_id"]
                     if ridx in updated.index:
@@ -995,7 +913,6 @@ def learners_tab():
                         status = str(r.get("Status","")).strip().lower()
                         updated.loc[ridx, "Status"] = "Borrowed" if status in {"borrowed","out","issued"} else "Available"
 
-                # brand new rows (no _row_id)
                 new_rows = edited[edited["_row_id"].isna()]
                 if not new_rows.empty:
                     try:
@@ -1003,6 +920,7 @@ def learners_tab():
                         if pd.isna(current_max): current_max = 0
                     except Exception:
                         current_max = 0
+
                     for _, r in new_rows.iterrows():
                         current_max += 1
                         rec = {
@@ -1016,7 +934,6 @@ def learners_tab():
                         if rec["Book Title"] or rec["Barcode"]:
                             updated = pd.concat([updated, pd.DataFrame([rec])], ignore_index=True)
 
-                # rebuild helpers & save
                 save_books(updated)
                 st.success("Catalog saved.")
                 st.rerun()
@@ -1025,151 +942,27 @@ def learners_tab():
     with tabs[7]:
         st.subheader("📜 Borrow Log")
 
-        if st.button("🛠 Clean headers/unnamed"):
-            fixed = load_logs()
-            save_logs(fixed)
-            st.success("Borrow_log.csv cleaned & normalized.")
-            st.rerun()
-
         logs_now = load_logs()
         if logs_now.empty:
             st.info("No logs yet.")
         else:
             now = datetime.now()
             logs_now["Due Date"] = pd.to_datetime(logs_now["Due Date"], errors="coerce")
-            logs_now["Returned"] = logs_now["Returned"].fillna("No")
+
             logs_now["Days Overdue"] = logs_now.apply(
                 lambda row: (now - row["Due Date"]).days
-                if str(row["Returned"]).lower() == "no" and pd.notna(row["Due Date"]) and row["Due Date"] < now
+                if str(row.get("Returned","No")).lower() == "no" and pd.notna(row["Due Date"]) and row["Due Date"] < now
                 else 0,
                 axis=1
             )
-            def highlight_overdue(row):
-                if str(row.get("Returned","no")).lower() == "no" and pd.notna(row.get("Due Date")) and row["Due Date"] < now:
-                    return ['background-color: #ffdddd'] * len(row)
-                return [''] * len(row)
 
             show_cols = ["Student","Book Title","Book ID","Barcode","Copy Key","Date Borrowed","Due Date","Returned","Days Overdue"]
             for c in show_cols:
                 if c not in logs_now.columns:
                     logs_now[c] = ""
-            st.dataframe(logs_now[show_cols].style.apply(highlight_overdue, axis=1), use_container_width=True)
+
+            st.dataframe(logs_now[show_cols], use_container_width=True)
             st.download_button("Download CSV", logs_now.to_csv(index=False), file_name="Borrow_log.csv", mime="text/csv")
-
-        st.markdown("---")
-
-        # Back-capture (manual add)
-        with st.expander("➕ Add / Back-capture a Borrow"):
-            students_now = load_students()
-            books_now = load_books()
-            student_names2 = sorted((students_now["Name"].fillna("").str.strip() + " " + students_now["Surname"].fillna("").str.strip()).str.strip().tolist())
-            student_names2 = [s for s in student_names2 if s]
-            sel_student = st.selectbox("👩‍🎓 Student", [""] + student_names2, key="add_student")
-
-            books_now["_label"] = (
-                books_now["Book Title"].astype(str)
-                + "  [ID:" + books_now.get("Book ID","").astype(str).replace("", "-", regex=False)
-                + " | BC:" + books_now.get("Barcode","").astype(str).replace("", "-", regex=False) + "]"
-            )
-            sel_copy = st.selectbox("📚 Book Copy", [""] + books_now["_label"].tolist(), key="add_copy")
-
-            col_a, col_b = st.columns(2)
-            d_borrow = col_a.date_input("Date Borrowed", value=datetime.now().date(), key="add_d_borrow")
-            t_borrow = col_b.time_input("Time Borrowed", value=datetime.now().time().replace(second=0, microsecond=0), key="add_t_borrow")
-
-            col_c, col_d = st.columns(2)
-            d_due = col_c.date_input("Due Date", value=(datetime.now() + timedelta(days=14)).date(), key="add_d_due")
-            t_due = col_d.time_input("Due Time", value=datetime.now().time().replace(second=0, microsecond=0), key="add_t_due")
-
-            returned_now = st.checkbox("Mark as returned already?", value=False, key="add_returned")
-
-            if st.button("💾 Save Borrow (back-capture)"):
-                if not sel_student or not sel_copy:
-                    st.error("Please choose both a student and a book copy.")
-                else:
-                    has_open = logs_now[(logs_now["Student"]==sel_student) & (logs_now["Returned"].str.lower()=="no")]
-                    if not has_open.empty and not returned_now:
-                        st.error(f"🚫 {sel_student} already has a book out. Please return it first.")
-                    else:
-                        r = books_now.loc[books_now["_label"]==sel_copy].iloc[0]
-                        new_row = {
-                            "Student": sel_student,
-                            "Book Title": r["Book Title"],
-                            "Book ID": r.get("Book ID",""),
-                            "Barcode": r.get("Barcode",""),
-                            "Copy Key": r["_COPY_KEY"],
-                            "Date Borrowed": _ts(d_borrow, t_borrow),
-                            "Due Date": _ts(d_due, t_due),
-                            "Returned": "Yes" if returned_now else "No",
-                        }
-                        logs2 = pd.concat([logs_now, pd.DataFrame([new_row])], ignore_index=True)
-                        save_logs(logs2)
-                        if not returned_now:
-                            books_now.loc[books_now["_COPY_KEY"]==r["_COPY_KEY"], "Status"] = "Borrowed"
-                            save_books(books_now)
-                        st.success("Back-captured borrow saved.")
-                        st.rerun()
-
-        # Edit a log
-        with st.expander("✏️ Edit an Existing Log"):
-            if logs_now.empty:
-                st.info("Nothing to edit yet.")
-            else:
-                logs_sel = load_logs()
-                label = logs_sel["Student"] + " | " + logs_sel["Book Title"] + " | " + logs_sel["Date Borrowed"]
-                sel_label = st.selectbox("Choose a log entry", label.tolist(), key="edit_pick")
-                row = logs_sel[label == sel_label].iloc[0]
-
-                st.write("**Edit fields:**")
-                e_student = st.text_input("Student", value=row["Student"], key="edit_student")
-                e_book    = st.text_input("Book Title", value=row["Book Title"], key="edit_book")
-                e_barcode = st.text_input("Barcode", value=row.get("Barcode",""), key="edit_barcode")
-                e_copykey = st.text_input("Copy Key", value=row.get("Copy Key",""), key="edit_copykey")
-
-                rb = _safe_to_datetime(row.get("Date Borrowed", "")) or datetime.now()
-                rd = _safe_to_datetime(row.get("Due Date", "")) or (datetime.now() + timedelta(days=14))
-
-                col1, col2 = st.columns(2)
-                e_db = col1.date_input("Date Borrowed", value=rb.date(), key="edit_db")
-                e_tb = col2.time_input("Time Borrowed", value=rb.time().replace(microsecond=0), key="edit_tb")
-
-                col3, col4 = st.columns(2)
-                e_dd = col3.date_input("Due Date", value=rd.date(), key="edit_dd")
-                e_td = col4.time_input("Due Time", value=rd.time().replace(microsecond=0), key="edit_td")
-
-                e_returned = st.selectbox("Returned", ["No", "Yes"], index=0 if str(row["Returned"]).lower()=="no" else 1, key="edit_ret")
-
-                colA, colB = st.columns(2)
-                if colA.button("💾 Save Changes"):
-                    idx = logs_sel[label == sel_label].index[0]
-                    logs_sel.loc[idx, "Student"]    = e_student.strip()
-                    logs_sel.loc[idx, "Book Title"] = e_book.strip()
-                    logs_sel.loc[idx, "Barcode"]    = e_barcode.strip()
-                    logs_sel.loc[idx, "Copy Key"]   = e_copykey.strip()
-                    logs_sel.loc[idx, "Date Borrowed"] = _ts(e_db, e_tb)
-                    logs_sel.loc[idx, "Due Date"]      = _ts(e_dd, e_td)
-                    logs_sel.loc[idx, "Returned"]      = e_returned
-                    save_logs(logs_sel)
-
-                    if e_copykey.strip():
-                        books_now = load_books()
-                        books_now.loc[books_now["_COPY_KEY"] == e_copykey.strip(), "Status"] = "Available" if e_returned=="Yes" else "Borrowed"
-                        save_books(books_now)
-
-                    st.success("Log updated.")
-                    st.rerun()
-
-                if colB.button("🗑️ Delete This Log"):
-                    idx = logs_sel[label == sel_label].index[0]
-                    copy_key = logs_sel.loc[idx, "Copy Key"]
-                    logs_sel = logs_sel.drop(index=idx).reset_index(drop=True)
-                    save_logs(logs_sel)
-                    if copy_key:
-                        books_now = load_books()
-                        books_now.loc[books_now["_COPY_KEY"] == copy_key, "Status"] = "Available"
-                        save_books(books_now)
-                    st.warning("Log deleted.")
-                    st.rerun()
 
     # ---------------- Analytics ----------------
     with tabs[8]:
@@ -1191,26 +984,23 @@ def learners_tab():
 
             today = datetime.now()
             logs_od = logs_a.copy()
-            if "Due Date" in logs_od.columns:
-                logs_od["Due Date"] = pd.to_datetime(logs_od["Due Date"], errors="coerce")
-            if "Returned" in logs_od.columns:
-                overdue = logs_od[(logs_od["Returned"].str.lower() == "no") & (logs_od["Due Date"] < today)]
-                if not overdue.empty:
-                    overdue = overdue.copy()
-                    overdue["Days Overdue"] = (today - overdue["Due Date"]).dt.days
-                    st.warning(f"⏰ {len(overdue)} books overdue!")
-                    st.dataframe(overdue[["Student","Book Title","Due Date","Days Overdue"]])
-                else:
-                    st.success("✅ No overdue books!")
+            logs_od["Due Date"] = pd.to_datetime(logs_od.get("Due Date",""), errors="coerce")
+            overdue = logs_od[(logs_od.get("Returned","No").str.lower() == "no") & (logs_od["Due Date"] < today)]
+            if not overdue.empty:
+                overdue = overdue.copy()
+                overdue["Days Overdue"] = (today - overdue["Due Date"]).dt.days
+                st.warning(f"⏰ {len(overdue)} books overdue!")
+                st.dataframe(overdue[["Student","Book Title","Due Date","Days Overdue"]])
+            else:
+                st.success("✅ No overdue books!")
 
             logs_trend = logs_a.copy()
-            if "Date Borrowed" in logs_trend.columns:
-                logs_trend["Date Borrowed"] = pd.to_datetime(logs_trend["Date Borrowed"], errors="coerce")
-                trend = logs_trend.dropna(subset=["Date Borrowed"]).groupby(
-                    logs_trend["Date Borrowed"].dt.to_period("M")
-                ).size().reset_index(name="Borrows")
-                trend["Month"] = trend["Date Borrowed"].astype(str)
-                st.plotly_chart(px.line(trend, x="Month", y="Borrows", title="📈 Borrowing Trends Over Time"))
+            logs_trend["Date Borrowed"] = pd.to_datetime(logs_trend.get("Date Borrowed",""), errors="coerce")
+            trend = logs_trend.dropna(subset=["Date Borrowed"]).groupby(
+                logs_trend["Date Borrowed"].dt.to_period("M")
+            ).size().reset_index(name="Borrows")
+            trend["Month"] = trend["Date Borrowed"].astype(str)
+            st.plotly_chart(px.line(trend, x="Month", y="Borrows", title="📈 Borrowing Trends Over Time"))
 
 # ===============================
 # Run app
@@ -1220,4 +1010,3 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
-
