@@ -437,21 +437,29 @@ def sync_missing_open_logs(books_df: pd.DataFrame, logs_df: pd.DataFrame):
     return logs_new, created, patched
 
 # ===============================
-# Learners Tab (Editable list only)
+# Learners Tab (Editable + Add + Delete)
 # ===============================
 def learners_tab():
     st.subheader("👩‍🎓 Learners (Students)")
     students = load_students().copy()
 
-    for c in ["Code","Name","Surname","Gender"]:
+    # Ensure columns exist
+    for c in ["Code", "Name", "Surname", "Gender"]:
         if c not in students.columns:
             students[c] = ""
 
-    for c in ["Code","Name","Surname","Gender"]:
+    # Clean strings
+    for c in ["Code", "Name", "Surname", "Gender"]:
         students[c] = students[c].astype(str).str.strip()
 
     can_edit = is_admin()
 
+    # Canonical code column (for uniqueness checks, matching, etc.)
+    students["_CODE_CANON"] = students["Code"].astype(str).str.strip().str.lower()
+
+    # -------------------------------
+    # Non-admin view only
+    # -------------------------------
     q = st.text_input("Search (Code / Name / Surname)", "").strip().lower()
     view = students.copy()
     if q:
@@ -461,7 +469,7 @@ def learners_tab():
             view["Surname"].astype(str).str.lower().str.contains(q, na=False)
         ].copy()
 
-    view = view.sort_values(["Code","Name","Surname"], kind="stable")
+    view = view.sort_values(["Code", "Name", "Surname"], kind="stable")
     view["_row_id"] = view.index
     view = view.reset_index(drop=True)
 
@@ -469,17 +477,104 @@ def learners_tab():
 
     if not can_edit:
         st.info("Only admin can edit learners.")
-        st.dataframe(view[["Code","Name","Surname","Gender"]], use_container_width=True, hide_index=True)
+        st.dataframe(view[["Code", "Name", "Surname", "Gender"]], use_container_width=True, hide_index=True)
         return
 
+    # -------------------------------
+    # Admin controls: Add + Delete
+    # -------------------------------
+    with st.expander("➕ Add learner", expanded=False):
+        with st.form("add_learner_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                new_code = st.text_input("Code (unique)", "").strip()
+                new_name = st.text_input("Name", "").strip()
+            with col2:
+                new_surname = st.text_input("Surname", "").strip()
+                new_gender = st.selectbox("Gender", ["Boy", "Girl", "Other"], index=0)
+
+            submitted = st.form_submit_button("✅ Add learner")
+
+            if submitted:
+                if not new_code or not new_name or not new_surname:
+                    st.error("Code, Name, Surname cannot be blank.")
+                else:
+                    canon = new_code.strip().lower()
+                    if canon in set(students["_CODE_CANON"].tolist()):
+                        st.error("This Code already exists. Codes must be unique.")
+                    else:
+                        # Append new row
+                        new_row = {
+                            "Code": new_code.strip(),
+                            "Name": new_name.strip(),
+                            "Surname": new_surname.strip(),
+                            "Gender": new_gender.strip()
+                        }
+                        students = students.drop(columns=["_CODE_CANON"], errors="ignore")
+                        students = pd.concat([students, pd.DataFrame([new_row])], ignore_index=True)
+                        save_students(students)
+                        st.success("Learner added ✅")
+                        st.rerun()
+
+    with st.expander("🗑️ Delete learner", expanded=False):
+        # Build a nice label list
+        students_for_delete = students.copy()
+        students_for_delete["Label"] = (
+            students_for_delete["Code"].astype(str).str.strip()
+            + " — " + students_for_delete["Name"].astype(str).str.strip()
+            + " " + students_for_delete["Surname"].astype(str).str.strip()
+        )
+
+        labels = students_for_delete["Label"].tolist()
+        if not labels:
+            st.info("No learners to delete.")
+        else:
+            selected_label = st.selectbox("Select learner to delete", labels)
+            if st.button("❌ Delete selected learner", type="primary"):
+                # Locate row by label (unique if Code unique)
+                row_to_delete = students_for_delete[students_for_delete["Label"] == selected_label].index
+                if len(row_to_delete) == 0:
+                    st.error("Could not find the selected learner.")
+                else:
+                    students = students.drop(index=row_to_delete).reset_index(drop=True)
+                    students = students.drop(columns=["_CODE_CANON"], errors="ignore")
+                    save_students(students)
+                    st.success("Learner deleted ✅")
+                    st.rerun()
+
+    st.divider()
+
+    # -------------------------------
+    # Admin table editor (existing)
+    # -------------------------------
+    # Refresh view after possible changes
+    students = load_students().copy()
+    for c in ["Code", "Name", "Surname", "Gender"]:
+        if c not in students.columns:
+            students[c] = ""
+        students[c] = students[c].astype(str).str.strip()
+
+    q2 = st.text_input("Search (Code / Name / Surname) ", "", key="q_learners_2").strip().lower()
+    view2 = students.copy()
+    if q2:
+        view2 = view2[
+            view2["Code"].astype(str).str.lower().str.contains(q2, na=False) |
+            view2["Name"].astype(str).str.lower().str.contains(q2, na=False) |
+            view2["Surname"].astype(str).str.lower().str.contains(q2, na=False)
+        ].copy()
+
+    view2 = view2.sort_values(["Code", "Name", "Surname"], kind="stable")
+    view2["_row_id"] = view2.index
+    view2 = view2.reset_index(drop=True)
+
     edited = st.data_editor(
-        view[["Code","Name","Surname","Gender","_row_id"]],
+        view2[["Code", "Name", "Surname", "Gender", "_row_id"]],
         use_container_width=True,
         hide_index=True,
         num_rows="fixed",
         column_config={
             "_row_id": st.column_config.Column("RowID", disabled=True),
-            "Gender": st.column_config.SelectboxColumn("Gender", options=["Boy","Girl","Other"], required=True)
+            "Gender": st.column_config.SelectboxColumn("Gender", options=["Boy", "Girl", "Other"], required=True),
         },
         disabled=["_row_id"],
         key="learners_editor",
@@ -487,7 +582,7 @@ def learners_tab():
 
     if st.button("💾 Save changes", key="btn_save_learners"):
         edited = edited.copy()
-        for c in ["Code","Name","Surname","Gender"]:
+        for c in ["Code", "Name", "Surname", "Gender"]:
             edited[c] = edited[c].astype(str).str.strip()
 
         if (edited["Code"] == "").any() or (edited["Name"] == "").any() or (edited["Surname"] == "").any():
@@ -499,6 +594,7 @@ def learners_tab():
             st.error("Duplicate student codes found. Codes must be unique.")
             return
 
+        # Apply edits back to original students by _row_id
         for _, r in edited.iterrows():
             rid = int(r["_row_id"])
             students.loc[rid, "Code"] = r["Code"]
@@ -506,10 +602,10 @@ def learners_tab():
             students.loc[rid, "Surname"] = r["Surname"]
             students.loc[rid, "Gender"] = r["Gender"]
 
-        students = students.drop(columns=["_CODE_CANON"], errors="ignore")
         save_students(students)
         st.success("Learners updated successfully ✅")
         st.rerun()
+
 
 # ===============================
 # Main App
@@ -965,4 +1061,5 @@ if __name__ == "__main__":
         login_form()
     else:
         main()
+
 
