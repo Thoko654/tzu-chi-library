@@ -1,7 +1,7 @@
 #,Book ID,Book Title,Author / Publisher,Barcode,Language,Condition,Status,Author,_idx,_BARCODE_CANON,_ROW_UID,_COPY_KEY
 1,TCTC001,Scarlet and Ivy. The Dance in the Dark,Sophie Cleverly,9780007589227,English,Good,Available,Sophie Cleverly,0,9780007589227,1,TCTC001|9780007589227|1
 2,TCTC002,Scarlet and Ivy. The Last Secret,Sophie Cleverly,9780008218232,English,Good,Available,Sophie Cleverly,1,9780008218232,2,TCTC002|9780008218232|2
-3,TCTC003,Scarlet and Ivy. The Lights Under the Lake,Sophie Cleverly,9780008218331,English,Good,Available,Sophie Cleverly,2,9780008218331,3,TCTC003|9780008218331|3
+3,TCTC003,Scarlet and Ivy. The Lights Under the Lake,Sophie Cleverly,9780008218331,English,Good,Borrowed,Sophie Cleverly,2,9780008218331,3,TCTC003|9780008218331|3
 4,TCTC004,Scarlet and Ivy. The Whispers in the Walls,Sophie Cleverly,9780007589203,English,Good,Available,Sophie Cleverly,3,9780007589203,4,TCTC004|9780007589203|4
 5,TCTC005,Scarlet and Ivy. The Curse in the Candlelight,Sophie Cleverly,9780008218317,English,Good,Available,Sophie Cleverly,4,9780008218317,5,TCTC005|9780008218317|5
 7,TCTC006,Diary of a Wimpy Kid. Cabin Fever,Jeff Kinney,9780141343006,English,Good,Available,,5,9780141343006,6,TCTC006|9780141343006|6
